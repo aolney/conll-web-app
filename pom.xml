@@ -7,11 +7,6 @@
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
-            <groupId>edu.memphis.iis</groupId>
-            <artifactId>mateplus-poc-nocode</artifactId>
-            <version>1.0-SNAPSHOT</version>
-        </dependency>
-        <dependency>
             <groupId>com.googlecode.json-simple</groupId>
             <artifactId>json-simple</artifactId>
             <version>1.1.1</version>
@@ -45,6 +40,11 @@
             <groupId>edu.memphis.iis</groupId>
             <artifactId>mateplus-models</artifactId>
             <version>4.31</version>
+        </dependency>
+        <dependency>
+            <groupId>edu.memphis.iis</groupId>
+            <artifactId>mateplus-poc-nocode</artifactId>
+            <version>1.0-SNAPSHOT</version>
         </dependency>
     </dependencies>
     <properties>
