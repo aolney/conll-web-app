@@ -12,6 +12,8 @@ import org.json.simple.JSONObject;
 //import processors here
 import edu.memphis.iis.MatePlusProcessor;
 import edu.memphis.iis.CoNLL09MemoryWriter;
+
+
 import java.util.ArrayList;
 import java.util.List;
 import static junit.framework.Assert.assertTrue;
@@ -44,12 +46,13 @@ public class EchoServerJSON {
                     break;
                 }
                 //TODO: fix this section
+                out.println("MatePlus processing beginning");
                 
-                mateplusProcess();
+                String output = mateplusProcess();
                 
                 //codify new object as json and return it in plain text
                 JSONObject object = new JSONObject();
-                object.put("result", inputLine);
+                object.put("result", output);
                 StringWriter jsonOut = new StringWriter();
                 object.writeJSONString(jsonOut);
                 String jsonText = jsonOut.toString();
@@ -59,7 +62,8 @@ public class EchoServerJSON {
             System.out.println("Something has gone wrong.");
         }
     }
-    public void mateplusProcess() throws Exception{
+    public String mateplusProcess() throws Exception{
+        
         MatePlusProcessor processor = new MatePlusProcessor();
         processor.initModels();
 
@@ -69,12 +73,15 @@ public class EchoServerJSON {
         List<Double> times = new ArrayList<Double>();
 
         ClassLoader classLoader = getClass().getClassLoader();
+        // Line below should be changed based on what type of input we want to feed the program
         File file = new File(classLoader.getResource("input.txt").getFile());
         BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
+        String ret = "";
         String line;
         while ((line = br.readLine()) != null) {
             long startTime = System.nanoTime();
-            writer.write(processor.parse(line));
+            //writer.write(processor.parse(line));
+            ret += processor.parse(line);
             double elapsedMs = (System.nanoTime() - startTime) / 1000000.0;
             assertTrue(elapsedMs > 0.0);
             times.add(elapsedMs);
@@ -102,6 +109,8 @@ public class EchoServerJSON {
 
         System.out.println("Count: " + times.size());
         System.out.println(String.format("Min:%.2f Mean/SD:%.2f,%.2f Max:%.2f", min, mean, stdev, max));
+        
+        return ret;
     }
     
     
