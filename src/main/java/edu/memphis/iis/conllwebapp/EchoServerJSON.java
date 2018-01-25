@@ -27,7 +27,7 @@ public class EchoServerJSON {
     private PrintWriter out;
     
     //start the server and wait for input
-    public void start(int port){
+    public void start(int port) throws Exception{
         try{
             serverSocket = new ServerSocket(port);
             
@@ -44,12 +44,9 @@ public class EchoServerJSON {
                     break;
                 }
                 //TODO: fix this section
-                try{
-                mateplusProcess();}
-                catch(Exception e){
-                    out.println("mistake");
-                    break;
-                }
+                
+                mateplusProcess();
+                
                 //codify new object as json and return it in plain text
                 JSONObject object = new JSONObject();
                 object.put("result", inputLine);
@@ -109,7 +106,7 @@ public class EchoServerJSON {
     
     
     //Initialize the server and begin listening on port 4444
-    public static void main(String[] args){
+    public static void main(String[] args) throws Exception{
         EchoServerJSON server = new EchoServerJSON();
         server.start(4444);
     }
