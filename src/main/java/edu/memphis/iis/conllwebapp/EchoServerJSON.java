@@ -20,6 +20,7 @@ import org.clulab.processors.corenlp.CoreNLPProcessor;
 import org.clulab.struct.CorefMention;
 import org.clulab.struct.DirectedGraphEdgeIterator;
 import org.clulab.discourse.rstparser.DiscourseTree;
+//import org.clulab.serialization.
 import org.clulab.processors.Document;
 import org.clulab.processors.Processor;
 import org.clulab.processors.Sentence;
@@ -54,22 +55,27 @@ public class EchoServerJSON {
                     out.println("Good bye.");
                     break;
                 }
-
+                /**
                 out.println("MatePlus processing beginning");
                 String output = mateplusProcess();  
                 out.println("MatePlus exitted successfully");
-                
+                */
                 out.println("CoreNLP processing beginning");
                 //TODO
+                ClassLoader classLoader = getClass().getClassLoader();
+                File file = new File(classLoader.getResource("conll-txt.txt").getFile());
+                corenlpProcess(file);
                 
                 
                 //codify new object as json and return it in plain text
+                /**
                 JSONObject object = new JSONObject();
                 object.put("result", output);
                 StringWriter jsonOut = new StringWriter();
                 object.writeJSONString(jsonOut);
                 String jsonText = jsonOut.toString();
                 out.println(jsonText);
+                * **/
             }
         } catch(IOException e) {
             System.out.println("Something has gone wrong.");
@@ -135,7 +141,7 @@ public class EchoServerJSON {
         return ret;
     }
     
-    public void corenlpProcess(File conllFile){
+    public void corenlpProcess(File conllFile) throws FileNotFoundException{
         
         // create a new core nlp prcoessor
         Processor proc = new CoreNLPProcessor(true, true, 1, 10000);
@@ -146,8 +152,11 @@ public class EchoServerJSON {
         Reader srlAnnotator = new Reader();
         Document srlDoc = srlAnnotator.read(conllFile, proc, false);
         
+        try (PrintWriter outputFile = new PrintWriter("srlDoc.txt")) {
+            outputFile.println(srlDoc);
+        }
         
-        
+        // yeah this isnt going to work since I dont have any sentences for the document
         int sentenceCount = 0;
         for (Sentence sentence: srlDoc.sentences()) {
             System.out.println("Sentence #" + sentenceCount + ":");
