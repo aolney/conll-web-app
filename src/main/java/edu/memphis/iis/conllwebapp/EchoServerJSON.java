@@ -62,6 +62,7 @@ public class EchoServerJSON {
                 out.println("CoreNLP processing beginning");
                 //TODO
                 
+                
                 //codify new object as json and return it in plain text
                 JSONObject object = new JSONObject();
                 object.put("result", output);
@@ -135,8 +136,9 @@ public class EchoServerJSON {
     }
     
     public void corenlpProcess(File conllFile){
+        
         // create a new core nlp prcoessor
-        Processor proc = new CoreNLPProcessor(true, true, 1, 1000);
+        Processor proc = new CoreNLPProcessor(true, true, 1, 10000);
         // sample text
         //Document doc = proc.annotate("No one actually knows what drives reef resilience or even what a coral reef looks like as it is rebounding.", false);
         
@@ -169,6 +171,22 @@ public class EchoServerJSON {
             if(sentence.norms().isDefined()){
                 System.out.println("Normalized entities: " + mkString(sentence.norms().get(), " "));
             }
+             if(sentence.dependencies().isDefined()) {
+                System.out.println("Syntactic dependencies:");
+                DirectedGraphEdgeIterator<String> iterator = new
+                    DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
+                while(iterator.hasNext()) {
+                    scala.Tuple3<Object, Object, String> dep = iterator.next();
+                    // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
+                    System.out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                }
+            }
+            if(sentence.syntacticTree().isDefined()) {
+                System.out.println("Constituent tree: " + sentence.syntacticTree().get());
+                // see the org.clulab.struct.Tree class for more information
+                // on syntactic trees, including access to head phrases/words
+            }
+
             sentenceCount += 1;
             System.out.println("\n");
         }          
