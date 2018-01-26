@@ -55,7 +55,7 @@ public class EchoServerJSON {
                     out.println("Good bye.");
                     break;
                 }
-                /**
+                /*
                 out.println("MatePlus processing beginning");
                 String output = mateplusProcess();  
                 out.println("MatePlus exitted successfully");
@@ -103,6 +103,7 @@ public class EchoServerJSON {
             long startTime = System.nanoTime();
             //writer.write(processor.parse(line));
             ret += processor.parse(line);
+            ret += "\n";
             double elapsedMs = (System.nanoTime() - startTime) / 1000000.0;
             assertTrue(elapsedMs > 0.0);
             times.add(elapsedMs);
@@ -135,8 +136,8 @@ public class EchoServerJSON {
         // Create a conll txt file for testing purposes
         //      -->May need this for later to allow passing of vars<--
         //
-        //PrintWriter outFile = new PrintWriter("conll-txt.txt");
-        //outFile.println(ret);
+        PrintWriter outFile = new PrintWriter("conll-txt.txt");
+        outFile.println(ret);
         
         return ret;
     }
@@ -150,7 +151,7 @@ public class EchoServerJSON {
         
         
         Reader srlAnnotator = new Reader();
-        Document srlDoc = srlAnnotator.read(conllFile, proc, false);
+        Document srlDoc = srlAnnotator.read(conllFile, proc, true);
         
         try (PrintWriter outputFile = new PrintWriter("srlDoc.txt")) {
             outputFile.println(srlDoc);
