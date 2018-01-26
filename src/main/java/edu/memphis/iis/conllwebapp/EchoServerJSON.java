@@ -12,11 +12,15 @@ import org.json.simple.JSONObject;
 //import processors here
 import edu.memphis.iis.MatePlusProcessor;
 import edu.memphis.iis.CoNLL09MemoryWriter;
+import org.clulab.processors.corenlp.CoreNLPProcessor;
 
 
 import java.util.ArrayList;
 import java.util.List;
 import static junit.framework.Assert.assertTrue;
+import org.clulab.processors.Document;
+import org.clulab.processors.Processor;
+import org.clulab.processors.Sentence;
 
 /**
  *
@@ -45,10 +49,13 @@ public class EchoServerJSON {
                     out.println("Good bye.");
                     break;
                 }
-                //TODO: fix this section
+
                 out.println("MatePlus processing beginning");
+                String output = mateplusProcess();  
+                out.println("MatePlus exitted successfully");
                 
-                String output = mateplusProcess();
+                out.println("CoreNLP processing beginning");
+                //TODO
                 
                 //codify new object as json and return it in plain text
                 JSONObject object = new JSONObject();
@@ -62,6 +69,8 @@ public class EchoServerJSON {
             System.out.println("Something has gone wrong.");
         }
     }
+    
+    
     public String mateplusProcess() throws Exception{
         
         MatePlusProcessor processor = new MatePlusProcessor();
@@ -111,6 +120,55 @@ public class EchoServerJSON {
         System.out.println(String.format("Min:%.2f Mean/SD:%.2f,%.2f Max:%.2f", min, mean, stdev, max));
         
         return ret;
+    }
+    
+    public void corenlpProcess(){
+   
+        Processor proc = new CoreNLPProcessor(true, true, 1, 1000);
+        Document doc = proc.annotate("No one actually knows what drives reef resilience or even what a coral reef looks like as it is rebounding.", false);
+        int sentenceCount = 0;
+        for (Sentence sentence: doc.sentences()) {
+            System.out.println("Sentence #" + sentenceCount + ":");
+            System.out.println("Tokens: " + mkString(sentence.words(), " "));
+            System.out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));
+            System.out.println("End character offsets: " + mkString(sentence.endOffsets(), " "));
+
+            // these annotations are optional, so they are stored using Option objects, hence the isDefined checks
+            if(sentence.lemmas().isDefined()){
+                System.out.println("Lemmas: " + mkString(sentence.lemmas().get(), " "));
+            }
+            if(sentence.tags().isDefined()){
+                System.out.println("POS tags: " + mkString(sentence.tags().get(), " "));
+            }
+            if(sentence.chunks().isDefined()){
+                System.out.println("Chunks: " + mkString(sentence.chunks().get(), " "));
+            }
+            if(sentence.entities().isDefined()){
+                System.out.println("Named entities: " + mkString(sentence.entities().get(), " "));
+            }
+            if(sentence.norms().isDefined()){
+                System.out.println("Normalized entities: " + mkString(sentence.norms().get(), " "));
+            }
+            sentenceCount += 1;
+            System.out.println("\n");
+        }          
+    }
+    //functions to help with the output from corenlpProcess
+    public static String mkString(String [] sa, String sep) {
+        StringBuilder os = new StringBuilder();
+        for(int i = 0; i < sa.length; i ++) {
+            if(i > 0) os.append(sep);
+            os.append(sa[i]);
+        }
+        return os.toString();
+    }
+    public static String mkString(int [] sa, String sep) {
+        StringBuilder os = new StringBuilder();
+        for(int i = 0; i < sa.length; i ++) {
+            if(i > 0) os.append(sep);
+            os.append(Integer.toString(sa[i]));
+        }
+        return os.toString();
     }
     
     
