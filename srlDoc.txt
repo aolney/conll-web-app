@@ -1,1 +1,1 @@
-org.clulab.processors.corenlp.CoreNLPDocument@149494d8
+org.clulab.processors.corenlp.CoreNLPDocument@646007f4
