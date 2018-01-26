@@ -7,20 +7,25 @@ package edu.memphis.iis.conllwebapp;
 
 import java.io.*;
 import java.net.*;
-import org.json.simple.JSONObject;
-
-//import processors here
-import edu.memphis.iis.MatePlusProcessor;
-import edu.memphis.iis.CoNLL09MemoryWriter;
-import org.clulab.processors.corenlp.CoreNLPProcessor;
-
-
 import java.util.ArrayList;
 import java.util.List;
 import static junit.framework.Assert.assertTrue;
+
+
+//external project imports
+import org.json.simple.JSONObject;
+import edu.memphis.iis.MatePlusProcessor;
+import edu.memphis.iis.CoNLL09MemoryWriter;
+import org.clulab.processors.corenlp.CoreNLPProcessor;
+import org.clulab.struct.CorefMention;
+import org.clulab.struct.DirectedGraphEdgeIterator;
+import org.clulab.discourse.rstparser.DiscourseTree;
 import org.clulab.processors.Document;
 import org.clulab.processors.Processor;
 import org.clulab.processors.Sentence;
+
+import org.clulab.swirl2.Reader;
+
 
 /**
  *
@@ -119,15 +124,30 @@ public class EchoServerJSON {
         System.out.println("Count: " + times.size());
         System.out.println(String.format("Min:%.2f Mean/SD:%.2f,%.2f Max:%.2f", min, mean, stdev, max));
         
+        
+        // Create a conll txt file for testing purposes
+        //      -->May need this for later to allow passing of vars<--
+        //
+        //PrintWriter outFile = new PrintWriter("conll-txt.txt");
+        //outFile.println(ret);
+        
         return ret;
     }
     
-    public void corenlpProcess(){
-   
+    public void corenlpProcess(File conllFile){
+        // create a new core nlp prcoessor
         Processor proc = new CoreNLPProcessor(true, true, 1, 1000);
-        Document doc = proc.annotate("No one actually knows what drives reef resilience or even what a coral reef looks like as it is rebounding.", false);
+        // sample text
+        //Document doc = proc.annotate("No one actually knows what drives reef resilience or even what a coral reef looks like as it is rebounding.", false);
+        
+        
+        Reader srlAnnotator = new Reader();
+        Document srlDoc = srlAnnotator.read(conllFile, proc, false);
+        
+        
+        
         int sentenceCount = 0;
-        for (Sentence sentence: doc.sentences()) {
+        for (Sentence sentence: srlDoc.sentences()) {
             System.out.println("Sentence #" + sentenceCount + ":");
             System.out.println("Tokens: " + mkString(sentence.words(), " "));
             System.out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));

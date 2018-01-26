@@ -5,6 +5,7 @@
  */
 package edu.memphis.iis.conllwebapp;
 
+import java.io.File;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -70,9 +71,11 @@ public class EchoServerJSONTest {
     @Test
     public void testCorenlpProcess() throws Exception {
         System.out.println("corenlpProcess test");
+        ClassLoader classLoader = getClass().getClassLoader();
+        File file = new File(classLoader.getResource("conll-txt.txt").getFile());
         EchoServerJSON instance = new EchoServerJSON();
         instance.start(4444);
-        instance.corenlpProcess();
+        instance.corenlpProcess(file);
         // TODO review the generated test code and remove the default call to fail.
         //fail("The test case is a prototype.");
     }

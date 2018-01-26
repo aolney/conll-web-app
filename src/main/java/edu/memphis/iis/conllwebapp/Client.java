@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package iis.memphis.conllwebapp;
+package edu.memphis.iis.conllwebapp;
 
 import java.io.*;
 import java.net.*;
