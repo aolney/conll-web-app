@@ -26,6 +26,8 @@ import org.clulab.processors.Processor;
 import org.clulab.processors.Sentence;
 
 import org.clulab.swirl2.Reader;
+//import static reader.conllreader.*;
+
 
 
 /**
@@ -55,11 +57,11 @@ public class EchoServerJSON {
                     out.println("Good bye.");
                     break;
                 }
-                /*
+                
                 out.println("MatePlus processing beginning");
                 String output = mateplusProcess();  
                 out.println("MatePlus exitted successfully");
-                */
+                
                 out.println("CoreNLP processing beginning");
                 //TODO
                 ClassLoader classLoader = getClass().getClassLoader();
@@ -145,21 +147,23 @@ public class EchoServerJSON {
     public void corenlpProcess(File conllFile) throws FileNotFoundException{
         
         // create a new core nlp prcoessor
-        Processor proc = new CoreNLPProcessor(true, true, 1, 10000);
+        Processor proc = new CoreNLPProcessor(true, true, 1, 200);
         // sample text
-        //Document doc = proc.annotate("No one actually knows what drives reef resilience or even what a coral reef looks like as it is rebounding.", false);
+        Document doc = proc.annotate(conllFile, false);
         
         
-        Reader srlAnnotator = new Reader();
-        Document srlDoc = srlAnnotator.read(conllFile, proc, true);
+        //conllreader srlAnnotator = new conllreader();
         
+        //Document srlDoc = srlAnnotator.readconll(conllFile, proc);
+        
+        /**
         try (PrintWriter outputFile = new PrintWriter("srlDoc.txt")) {
             outputFile.println(srlDoc);
-        }
+        }**/
         
         // yeah this isnt going to work since I dont have any sentences for the document
         int sentenceCount = 0;
-        for (Sentence sentence: srlDoc.sentences()) {
+        for (Sentence sentence: doc.sentences()) {
             System.out.println("Sentence #" + sentenceCount + ":");
             System.out.println("Tokens: " + mkString(sentence.words(), " "));
             System.out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));
