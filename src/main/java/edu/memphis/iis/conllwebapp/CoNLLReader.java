@@ -8,6 +8,8 @@ package edu.memphis.iis.conllwebapp;
 import java.io.*;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 import org.clulab.processors.*;
 import org.clulab.struct.*;
 import org.slf4j.LoggerFactory;
@@ -56,8 +58,8 @@ public class CoNLLReader {
             // this should be an array of arrays that contain CoNLLToken
         // create an array of of CoNLLToken that will represent each individual sentence
         
-        CoNLLToken sentence[];
-        CoNLLToken sentences[][];
+        List<CoNLLToken> sentence = new ArrayList<CoNLLToken>();
+        List<List> sentences = new ArrayList<List>();
         
         //set all base values to 0
         argConflictCount = 0;
@@ -72,10 +74,18 @@ public class CoNLLReader {
         String line;
         while((line = br.readLine()) != null){
             line = line.trim();
+            // if the line is not empty, tokenize the line and add it to sentence list
             if (line.length() > 0){
                 String[] bits = line.split("\\t");
                 assert(bits.length >= 11); //may need to do some additional testing
-                
+                CoNLLToken token = mkToken(bits);
+                sentence.add(token);
+                tokenCount += 1;
+                if(token.pos.equals("HYPH")) hyphCount += 1; //this is messy, may or may not be what is intended
+            }
+            else{
+                // collapse hyphens, add sentence to sentences list, reset sentence array
+                //sentences.add(collapseHyphens)
             }
         }
         
@@ -134,4 +144,33 @@ public class CoNLLReader {
         return output;
     }
     
+    public List<CoNLLToken> collapseHyphens(List<CoNLLToken> origSentence){
+        /*
+        if (USE_CONLL_TOKENIZATION) return origSentence
+        */
+        List<CoNLLToken> output = new ArrayList<CoNLLToken>();
+        int start = 0;
+        while(start < origSentence.size()){
+            int end = findEnd(origSentence, start);
+            if (end > start + 1){
+                CoNLLToken token = mergeTokens(origSentence, start, end);
+            }
+        }
+    }
+    
+    // find the last element of the sent list
+    // --->FLAGGED<----
+    //  What is this funciton even doing?
+    public int findEnd(List<CoNLLToken> sent, int start){
+        int end = start + 1;
+        while (end < sent.size()){
+            if (!sent.get(end).pos.equals("HYPH")) return end; // might run into problems here
+            else end = end + 2; // why is this plus 2?
+        }
+        return sent.size();
+    }
+    
+    public CoNLLToken mergeTokens(List<CoNLLToken> sent, int start, int end){
+        List<CoNLLToken> tmp = sent.subList(start, end);
+    }
 }
