@@ -59,14 +59,16 @@ public class EchoServerJSON {
                 }
                 
                 out.println("MatePlus processing beginning");
-                String output = mateplusProcess();  
+                //String output = mateplusProcess();  
                 out.println("MatePlus exitted successfully");
                 
                 out.println("CoreNLP processing beginning");
                 //TODO
                 ClassLoader classLoader = getClass().getClassLoader();
-                File file = new File(classLoader.getResource("conll-txt.txt").getFile());
-                corenlpProcess(file);
+                File file = new File(classLoader.getResource("input.txt").getFile());
+                String filepath = file.getPath();
+                corenlpProcess(filepath);
+                out.println("CoreNLP exitted successfully.");
                 
                 
                 //codify new object as json and return it in plain text
@@ -144,26 +146,30 @@ public class EchoServerJSON {
         return ret;
     }
     
-    public void corenlpProcess(File conllFile) throws FileNotFoundException{
+    public void corenlpProcess(String conllFile) throws FileNotFoundException, IOException{
         
         // create a new core nlp prcoessor
         Processor proc = new CoreNLPProcessor(true, true, 1, 200);
         // sample text
         Document doc = proc.annotate(conllFile, false);
+        String inputStr = "";
+        for (Sentence sentence: doc.sentences()){
+            inputStr += sentence;
+        }
+        PrintWriter out = new PrintWriter(new FileWriter("output.txt"));
         
+        CoNLLReader srlAnnotator = new CoNLLReader();
         
-        //conllreader srlAnnotator = new conllreader();
-        
-        //Document srlDoc = srlAnnotator.readconll(conllFile, proc);
+        List<List> out1 = srlAnnotator.readCoNLL(out);
         
         /**
         try (PrintWriter outputFile = new PrintWriter("srlDoc.txt")) {
             outputFile.println(srlDoc);
-        }**/
-        
+        }
+        */
         // yeah this isnt going to work since I dont have any sentences for the document
         int sentenceCount = 0;
-        for (Sentence sentence: doc.sentences()) {
+        for (Sentence sentence: srlDoc.sentences()) {
             System.out.println("Sentence #" + sentenceCount + ":");
             System.out.println("Tokens: " + mkString(sentence.words(), " "));
             System.out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));
@@ -176,6 +182,7 @@ public class EchoServerJSON {
             if(sentence.tags().isDefined()){
                 System.out.println("POS tags: " + mkString(sentence.tags().get(), " "));
             }
+            
             if(sentence.chunks().isDefined()){
                 System.out.println("Chunks: " + mkString(sentence.chunks().get(), " "));
             }
@@ -200,10 +207,10 @@ public class EchoServerJSON {
                 // see the org.clulab.struct.Tree class for more information
                 // on syntactic trees, including access to head phrases/words
             }
-
+            
             sentenceCount += 1;
             System.out.println("\n");
-        }          
+        }       
     }
     //functions to help with the output from corenlpProcess
     public static String mkString(String [] sa, String sep) {

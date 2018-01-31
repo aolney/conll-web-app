@@ -48,10 +48,11 @@ public class CoNLLReader {
     }
     
     //output is of Document type for now, likely will be changed before final version
-    public Document readCoNLL(String filepath, Document doc) throws FileNotFoundException, IOException{
+    public List<List> readCoNLL(String filepath) throws FileNotFoundException, IOException{
         
         //open the file
         File file = new File(filepath);
+        //Source magic = Source.fromFile(file, filepath);
         BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
         
          // create an array of all sentences of the document
@@ -85,11 +86,16 @@ public class CoNLLReader {
             }
             else{
                 // collapse hyphens, add sentence to sentences list, reset sentence array
-                //sentences.add(collapseHyphens)
+                sentences.add(collapseHyphens(sentence));
+                sentence = new ArrayList<>();
+                sentCount += 1;
             }
         }
+        System.out.println("Read " + tokenCount + " tokens, grouped into " + sentCount + " sentenes.");
+        System.out.println("Found " + hyphCount + " hyphens.");
+        System.out.println("In hyphenated phrases, found " + multiPredCount + " multi predicates and " + argConflictCount + " argument conflicts.");
         
-        // close the file and print some debug information
+        return sentences;
         
         // construct semantic roles of CoNLL tokens
         
@@ -100,9 +106,10 @@ public class CoNLLReader {
         // debug and return Document
     }
     
+    /*
     public Document mkDocument(CoNLLToken[][] sentences, Processor proc){
         
-    }
+    }*/
     
     // this is the function that may need to be edited a bit to work with our server
     // 
@@ -144,6 +151,10 @@ public class CoNLLReader {
         return output;
     }
     
+    // ------> BIG FLAG <-----------
+    // does collapsing the hyphens give us the intended output?
+    //
+    // COME BACK LATER
     public List<CoNLLToken> collapseHyphens(List<CoNLLToken> origSentence){
         /*
         if (USE_CONLL_TOKENIZATION) return origSentence
@@ -154,23 +165,77 @@ public class CoNLLReader {
             int end = findEnd(origSentence, start);
             if (end > start + 1){
                 CoNLLToken token = mergeTokens(origSentence, start, end);
+                output.add(token);
+            } else {
+                output.add(origSentence.get(start));
             }
+            start = end;
         }
+        return output;
     }
     
-    // find the last element of the sent list
-    // --->FLAGGED<----
-    //  What is this funciton even doing?
+    // find the end of the hyphenated phrase and return it
     public int findEnd(List<CoNLLToken> sent, int start){
         int end = start + 1;
         while (end < sent.size()){
             if (!sent.get(end).pos.equals("HYPH")) return end; // might run into problems here
-            else end = end + 2; // why is this plus 2?
+            else end = end + 2;
         }
         return sent.size();
     }
     
+    // take the start and the end of the hyphenated phrase and combine them into one token
     public CoNLLToken mergeTokens(List<CoNLLToken> sent, int start, int end){
-        List<CoNLLToken> tmp = sent.subList(start, end);
+        CoNLLToken output = new CoNLLToken();
+        // make sure this is copying correctly
+        List<CoNLLToken> phrase = sent.subList(start, end);
+        int ending = phrase.size()-1; // ending index, might be incorrect here
+        String word = phrase.get(0).word + phrase.get(ending).word;   
+        String lemma = phrase.get(0).lemma + phrase.get(ending).lemma;
+        int pred = mergePredicates(phrase);
+        String frameBits[] = mergeFrames(phrase);
+        
+        output.word = word;
+        output.pos = phrase.get(ending).pos;
+        output.lemma = lemma;
+        output.pred = pred;
+        output.frameBits = frameBits;
+        output.dep = sent.get(start).dep;
+        
+        return output;
+    }
+    
+    public int mergePredicates(List<CoNLLToken> phrase){
+        // might be wrong here
+        int ending = phrase.size() -1;
+        int total = phrase.get(0).pred + phrase.get(ending).pred;
+        if (total > 1){
+            System.out.println("Found MULTI PREDICATE in hyphenated phrase: " + phrase);
+            multiPredCount += 1;
+        }
+        return total;
+    }
+    
+    public String[] mergeFrames(List<CoNLLToken> phrase){
+        String frameBits[] = new String[phrase.get(0).frameBits.length];
+        for(int x = 0; x < frameBits.length; x++){
+            frameBits[x] = mergeFrame(phrase, x);
+        }
+        return frameBits;
+    }
+    
+    public String mergeFrame(List<CoNLLToken> phrase, int pos){
+        String arg = "_";
+        int count = 0;
+        for(int x = phrase.size()-1; x >= 0; x--){
+            if(!phrase.get(x).frameBits[pos].equals("_")){
+                if(arg.equals("_")) arg = phrase.get(x).frameBits[pos];
+                count += 1;
+            }
+        }
+        if(count>1){
+            argConflictCount += 1;
+        }
+        return arg;
     }
 }
