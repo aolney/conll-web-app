@@ -11,12 +11,14 @@ import java.util.Map;
 import java.util.List;
 import java.util.ArrayList;
 import org.clulab.processors.*;
-import org.clulab.struct.*;
+import org.clulab.struct.GraphMap; //DirectedGraph
 import org.slf4j.LoggerFactory;
 import scala.collection.mutable.*;
 import scala.io.Source;
-//import Reader._
 import org.clulab.serialization.*;
+import org.javatuples.*;
+import org.jgrapht.*;
+
 
 /**
  *
@@ -95,15 +97,73 @@ public class CoNLLReader {
         System.out.println("Found " + hyphCount + " hyphens.");
         System.out.println("In hyphenated phrases, found " + multiPredCount + " multi predicates and " + argConflictCount + " argument conflicts.");
         
-        return sentences;
         
         // construct semantic roles of CoNLL tokens
-        
+        List<Graph> semDependencies = new ArrayList<>();
+        for (List<CoNLLToken> sent: sentences){
+            semDependencies.add(mkSemanticDependencies(sent));
+        }
         //construct one Document for the entire corpus and annotate it
         
         // assing semantic roles to sentences in new Document
+        //assert(sentences.sentences)
+        
         
         // debug and return Document
+        return sentences;
+    }
+    
+    public Graph mkSemanticDependencies(List<CoNLLToken> sentence){
+        
+        // instantiate data structures
+        List<Triplet> edges = new ArrayList<>();
+        List<Integer> heads = new ArrayList<>();
+        List<Integer> modifiers = new ArrayList<>();
+        
+        // parse through sentence to find semantic dependencies
+        int columnOffset = -1;
+        for (int x = 0; x < sentence.size(); x++){
+            if (sentence.get(x).pred > 0){
+                int head = x;
+                heads.add(head);
+                predCount += 1;
+                columnOffset += sentence.get(x).pred;
+                for (int y = 0; y < sentence.size(); y++){
+                    if(!sentence.get(y).frameBits[columnOffset].equals("_")){
+                        int modifier = y;
+                        String label = sentence.get(y).frameBits[columnOffset];
+                        Triplet edge = new Triplet(head, modifier, label);
+                        edges.add(edge);
+                        modifiers.add(modifier);
+                        argCount+= 1;
+                    }
+                }
+            }
+        }
+        
+        List<Integer> roots = new ArrayList<>();
+        for (int x: heads){
+            if (!modifiers.contains(x)){
+                roots.add(x);
+            }
+        }
+        
+        // Create a new Graph that will be used to represent the dependency structure
+        
+        // is this the correct type? Vertices = Integer, Edges = String
+        
+        // what am i using the roots for? Is it the graph's edge weights?
+        Graph<Integer, String> output = null;
+        
+        for (Triplet item: edges){
+            int v1 = (Integer) item.getValue0();
+            int v2 = (Integer) item.getValue1();
+            String e = (String) item.getValue2();
+            output.addEdge(v1,v2,e);
+        }
+        
+        
+        return output;
     }
     
     /*

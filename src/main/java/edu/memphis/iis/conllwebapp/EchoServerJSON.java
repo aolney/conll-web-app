@@ -59,15 +59,16 @@ public class EchoServerJSON {
                 }
                 
                 out.println("MatePlus processing beginning");
-                //String output = mateplusProcess();  
+                //String mateplus_output = mateplusProcess();  
                 out.println("MatePlus exitted successfully");
                 
                 out.println("CoreNLP processing beginning");
                 //TODO
+                /*
                 ClassLoader classLoader = getClass().getClassLoader();
                 File file = new File(classLoader.getResource("input.txt").getFile());
-                String filepath = file.getPath();
-                corenlpProcess(filepath);
+                String filepath = file.getPath();*/
+                Document corenlp_output = corenlpProcess(inputLine);
                 out.println("CoreNLP exitted successfully.");
                 
                 
@@ -87,16 +88,26 @@ public class EchoServerJSON {
     }
     
     
-    public String mateplusProcess() throws Exception{
+    public String mateplusProcess(String inputStr) throws Exception{
         
         MatePlusProcessor processor = new MatePlusProcessor();
         processor.initModels();
 
         CoNLL09MemoryWriter writer = new CoNLL09MemoryWriter();
-        writer.debug = true;
+        //writer.debug = true;
 
-        List<Double> times = new ArrayList<Double>();
-
+        //List<Double> times = new ArrayList<Double>();
+        
+        String ret = "";
+        ret += processor.parse(inputStr);
+        return ret;
+        
+        // Unsure about this line, may need to use it for our purposes
+        //
+        //writer.write(processor.parse(inputStr));
+        
+        // Debug
+        /*
         ClassLoader classLoader = getClass().getClassLoader();
         // Line below should be changed based on what type of input we want to feed the program
         File file = new File(classLoader.getResource("input.txt").getFile());
@@ -140,36 +151,40 @@ public class EchoServerJSON {
         // Create a conll txt file for testing purposes
         //      -->May need this for later to allow passing of vars<--
         //
-        PrintWriter outFile = new PrintWriter("conll-txt.txt");
-        outFile.println(ret);
+        //PrintWriter outFile = new PrintWriter("conll-txt.txt");
+        //outFile.println(ret);
         
-        return ret;
+        return ret;*/
     }
     
-    public void corenlpProcess(String conllFile) throws FileNotFoundException, IOException{
+    public Document corenlpProcess(String inputStr) throws FileNotFoundException, IOException{
         
         // create a new core nlp prcoessor
         Processor proc = new CoreNLPProcessor(true, true, 1, 200);
         // sample text
-        Document doc = proc.annotate(conllFile, false);
-        String inputStr = "";
+        Document doc = proc.annotate(inputStr, false);
+        
+        /* Debug
+        String ret = "";
         for (Sentence sentence: doc.sentences()){
-            inputStr += sentence;
-        }
-        PrintWriter out = new PrintWriter(new FileWriter("output.txt"));
+            ret += sentence;
+        }*/
+        //PrintWriter out = new PrintWriter(new FileWriter("output.txt"));
         
-        CoNLLReader srlAnnotator = new CoNLLReader();
+        //CoNLLReader srlAnnotator = new CoNLLReader();
         
-        List<List> out1 = srlAnnotator.readCoNLL(out);
+        //List<List> out1 = srlAnnotator.readCoNLL(out);
         
         /**
         try (PrintWriter outputFile = new PrintWriter("srlDoc.txt")) {
             outputFile.println(srlDoc);
         }
         */
-        // yeah this isnt going to work since I dont have any sentences for the document
+        
+        // Some console output that helps with debugging
+        
         int sentenceCount = 0;
-        for (Sentence sentence: srlDoc.sentences()) {
+        for (Sentence sentence: doc.sentences()) {
             System.out.println("Sentence #" + sentenceCount + ":");
             System.out.println("Tokens: " + mkString(sentence.words(), " "));
             System.out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));
@@ -210,7 +225,8 @@ public class EchoServerJSON {
             
             sentenceCount += 1;
             System.out.println("\n");
-        }       
+        }
+        return doc;
     }
     //functions to help with the output from corenlpProcess
     public static String mkString(String [] sa, String sep) {
