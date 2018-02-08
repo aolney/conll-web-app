@@ -10,7 +10,8 @@ import java.net.*;
 import java.util.ArrayList;
 import java.util.List;
 import static junit.framework.Assert.assertTrue;
-
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 //external project imports
 import org.json.simple.JSONObject;
@@ -26,6 +27,7 @@ import org.clulab.processors.Processor;
 import org.clulab.processors.Sentence;
 
 import org.clulab.swirl2.Reader;
+import edu.memphis.iis.conllwebapp.CoNLLObject;
 //import static reader.conllreader.*;
 
 
@@ -44,7 +46,6 @@ public class EchoServerJSON {
     public void start(int port) throws Exception{
         try{
             serverSocket = new ServerSocket(port);
-            
 
             System.out.println("JSON echo server started " + serverSocket.getInetAddress().getHostAddress() + " on port " + serverSocket.getLocalPort() );
             clientSocket = serverSocket.accept();
@@ -59,7 +60,9 @@ public class EchoServerJSON {
                 }
                 
                 out.println("MatePlus processing beginning");
-                //String mateplus_output = mateplusProcess();  
+                String mateplus_output = mateplusProcess(inputLine);
+                out.print(mateplus_output);
+                out.println();
                 out.println("MatePlus exitted successfully");
                 
                 out.println("CoreNLP processing beginning");
@@ -68,7 +71,7 @@ public class EchoServerJSON {
                 ClassLoader classLoader = getClass().getClassLoader();
                 File file = new File(classLoader.getResource("input.txt").getFile());
                 String filepath = file.getPath();*/
-                Document corenlp_output = corenlpProcess(inputLine);
+                Document corenlp_output = corenlpProcess(mateplus_output);
                 out.println("CoreNLP exitted successfully.");
                 
                 
@@ -87,6 +90,12 @@ public class EchoServerJSON {
         }
     }
     
+    public CoNLLObject mergeAnnotations(String mateplus, Document corenlp){
+        
+        
+        CoNLLObject magic = new CoNLLObject();
+        return magic;
+    }
     
     public String mateplusProcess(String inputStr) throws Exception{
         
@@ -97,10 +106,23 @@ public class EchoServerJSON {
         //writer.debug = true;
 
         //List<Double> times = new ArrayList<Double>();
-        
+        /*
+        File file = File.createTempFile("temp",".txt");
+        BufferedWriter magic = new BufferedWriter(new FileWriter(file));
+        magic.write(inputStr);
+        writer.close();
         String ret = "";
-        ret += processor.parse(inputStr);
-        return ret;
+        ret += processor.parse(inputStr);*/
+        //String ret = "";
+        writer.write(processor.parse(inputStr));
+        List<String> mateplus = writer.getBuffer();
+        String output = "";
+        for (String s: mateplus){
+            output += s;
+            output += "\n";
+        }
+        output+= "\n";
+        //return ret;
         
         // Unsure about this line, may need to use it for our purposes
         //
@@ -153,18 +175,35 @@ public class EchoServerJSON {
         //
         //PrintWriter outFile = new PrintWriter("conll-txt.txt");
         //outFile.println(ret);
+        */
         
-        return ret;*/
+        return output;
     }
     
     public Document corenlpProcess(String inputStr) throws FileNotFoundException, IOException{
-        
-        // create a new core nlp prcoessor
+
         Processor proc = new CoreNLPProcessor(true, true, 1, 200);
-        // sample text
-        Document doc = proc.annotate(inputStr, false);
+        Reader annotator = new Reader();
         
+        // annotator needs a file, so create a temporary file with inputStr
+        File file = File.createTempFile("temp",".txt");
+        BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+        writer.write(inputStr);
+        writer.close();
+        
+        boolean debug = false;
+        if(debug){
+            BufferedReader br = new BufferedReader(new FileReader(file));
+            String line;
+            System.out.println("output written");
+            while ((line = br.readLine()) != null){
+                System.out.println(line);
+            }
+        }
+
+        Document doc = annotator.read(file, proc, true);
         /* Debug
+
         String ret = "";
         for (Sentence sentence: doc.sentences()){
             ret += sentence;
@@ -183,13 +222,13 @@ public class EchoServerJSON {
         
         // Some console output that helps with debugging
         
+        
         int sentenceCount = 0;
         for (Sentence sentence: doc.sentences()) {
             System.out.println("Sentence #" + sentenceCount + ":");
             System.out.println("Tokens: " + mkString(sentence.words(), " "));
             System.out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));
             System.out.println("End character offsets: " + mkString(sentence.endOffsets(), " "));
-
             // these annotations are optional, so they are stored using Option objects, hence the isDefined checks
             if(sentence.lemmas().isDefined()){
                 System.out.println("Lemmas: " + mkString(sentence.lemmas().get(), " "));
@@ -197,7 +236,6 @@ public class EchoServerJSON {
             if(sentence.tags().isDefined()){
                 System.out.println("POS tags: " + mkString(sentence.tags().get(), " "));
             }
-            
             if(sentence.chunks().isDefined()){
                 System.out.println("Chunks: " + mkString(sentence.chunks().get(), " "));
             }
@@ -207,7 +245,7 @@ public class EchoServerJSON {
             if(sentence.norms().isDefined()){
                 System.out.println("Normalized entities: " + mkString(sentence.norms().get(), " "));
             }
-             if(sentence.dependencies().isDefined()) {
+            if(sentence.dependencies().isDefined()) {
                 System.out.println("Syntactic dependencies:");
                 DirectedGraphEdgeIterator<String> iterator = new
                     DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
@@ -217,12 +255,22 @@ public class EchoServerJSON {
                     System.out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
                 }
             }
+            if(sentence.semanticRoles().isDefined()){
+                System.out.println("Semantic dependencies:");
+                DirectedGraphEdgeIterator<String> iterator = new
+                    DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
+                while(iterator.hasNext()) {
+                    scala.Tuple3<Object, Object, String> dep = iterator.next();
+                    // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
+                    System.out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                }
+                
+            }
             if(sentence.syntacticTree().isDefined()) {
                 System.out.println("Constituent tree: " + sentence.syntacticTree().get());
                 // see the org.clulab.struct.Tree class for more information
                 // on syntactic trees, including access to head phrases/words
             }
-            
             sentenceCount += 1;
             System.out.println("\n");
         }
@@ -245,8 +293,6 @@ public class EchoServerJSON {
         }
         return os.toString();
     }
-    
-    
     //Initialize the server and begin listening on port 4444
     public static void main(String[] args) throws Exception{
         EchoServerJSON server = new EchoServerJSON();
