@@ -15,6 +15,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
+
 package edu.memphis.iis.conllwebapp;
 
 // Java imports
@@ -63,7 +64,7 @@ public class EchoServerJSON {
         
         try{
             serverSocket = new ServerSocket(port);
-
+        
             System.out.println("JSON echo server started " + serverSocket.getInetAddress().getHostAddress() + " on port " + serverSocket.getLocalPort() );
             clientSocket = serverSocket.accept();
             out = new PrintWriter(clientSocket.getOutputStream(), true);
@@ -78,11 +79,11 @@ public class EchoServerJSON {
                     break;
                 }
                 
-                out.println("MatePlus processing beginning");
+                out.println("MatePlus processing started...");
                 String mateplus_output = mateplusProcess(inputLine);
-                out.println("MatePlus exitted successfully");
+                out.println("MatePlus exitted successfully.");
                 
-                out.println("CoreNLP processing beginning");
+                out.println("CoreNLP processing started...");
                 Document corenlp_output = corenlpProcess(mateplus_output);
                 out.println("CoreNLP exitted successfully.");
                 
@@ -97,7 +98,10 @@ public class EchoServerJSON {
                 * **/
             }
         } catch(IOException e) {
-            System.out.println("Something has gone wrong.");
+            System.out.println("Could not start server on port: " + port);
+            System.out.println("Exitting process on input.");
+            System.in.read();
+            return;     
         }
     }
     
@@ -110,20 +114,38 @@ public class EchoServerJSON {
         
         MatePlusProcessor processor = new MatePlusProcessor();
         processor.initModels();
-
         CoNLL09MemoryWriter writer = new CoNLL09MemoryWriter();
-        writer.write(processor.parse(inputStr));
         
-        List<String> mateplus = writer.getBuffer();
-        
-        // This is where our code is probably going to break
-        String output = "";
-        for (String s: mateplus){
-            output += s;
-            output += "\n";
+        // separate each line for parsing by punctuation marks
+        String formattedInputStr = "";
+        for (int x = 0; x < inputStr.length();x++){
+            formattedInputStr += inputStr.charAt(x);
+            if(inputStr.charAt(x) == '.' || inputStr.charAt(x) == '?' || inputStr.charAt(x) == '!'){
+                formattedInputStr += "\n";
+            }
         }
-        output+= "\n";
-        System.out.println(output);
+        
+        String lines[] = formattedInputStr.split("\n");
+        for(String line: lines){
+            writer.write(processor.parse(line));
+        }
+
+        List<String> mateplus = writer.getBuffer();
+        String ret = "";
+        for(String line: mateplus){
+            ret += line;
+            ret += "\n\n";
+        }
+
+        return ret;
+    }
+    
+    public String parseMateOutput(List<String> inputStr){
+        String intermediary = "";
+        for (String s: inputStr){
+            intermediary += inputStr;
+        }
+        String output = "";
         return output;
     }
     
@@ -140,8 +162,8 @@ public class EchoServerJSON {
         
         Document doc = annotator.read(file, proc, true);
         
-        boolean debug = false;
-        if (debug){
+        boolean debug1 = true;
+        if (debug1){
             int sentenceCount = 0;
             for (Sentence sentence: doc.sentences()) {
                 System.out.println("Sentence #" + sentenceCount + ":");
