@@ -83,6 +83,8 @@ public class EchoServerJSON {
                 String mateplus_output = mateplusProcess(inputLine);
                 out.println("MatePlus exitted successfully.");
                 
+                //System.out.println(mateplus_output);
+                
                 out.println("CoreNLP processing started...");
                 Document corenlp_output = corenlpProcess(mateplus_output);
                 out.println("CoreNLP exitted successfully.");
@@ -105,13 +107,9 @@ public class EchoServerJSON {
         }
     }
     
-    public CoNLLObject mergeAnnotations(String mateplus, Document corenlp){
-        CoNLLObject magic = new CoNLLObject();
-        return magic;
-    }
-    
     public String mateplusProcess(String inputStr) throws Exception{
         
+        // initialize processor, models, and conll writer
         MatePlusProcessor processor = new MatePlusProcessor();
         processor.initModels();
         CoNLL09MemoryWriter writer = new CoNLL09MemoryWriter();
@@ -125,11 +123,13 @@ public class EchoServerJSON {
             }
         }
         
+        // split then parse individual sentences
         String lines[] = formattedInputStr.split("\n");
         for(String line: lines){
             writer.write(processor.parse(line));
         }
-
+        
+        // format string buffer into single string with punctuation delimitation
         List<String> mateplus = writer.getBuffer();
         String ret = "";
         for(String line: mateplus){
@@ -140,15 +140,7 @@ public class EchoServerJSON {
         return ret;
     }
     
-    public String parseMateOutput(List<String> inputStr){
-        String intermediary = "";
-        for (String s: inputStr){
-            intermediary += inputStr;
-        }
-        String output = "";
-        return output;
-    }
-    
+    // run the coreNlpProcessor
     public Document corenlpProcess(String inputStr) throws FileNotFoundException, IOException{
 
         Processor proc = new CoreNLPProcessor(true, true, 1, 200);
@@ -162,7 +154,7 @@ public class EchoServerJSON {
         
         Document doc = annotator.read(file, proc, true);
         
-        boolean debug1 = true;
+        boolean debug1 = false;
         if (debug1){
             int sentenceCount = 0;
             for (Sentence sentence: doc.sentences()) {
@@ -199,7 +191,7 @@ public class EchoServerJSON {
                 if(sentence.semanticRoles().isDefined()){
                     System.out.println("Semantic dependencies:");
                     DirectedGraphEdgeIterator<String> iterator = new
-                        DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
+                        DirectedGraphEdgeIterator<String>(sentence.semanticRoles().get());
                     while(iterator.hasNext()) {
                         scala.Tuple3<Object, Object, String> dep = iterator.next();
                         // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
@@ -218,7 +210,8 @@ public class EchoServerJSON {
         }
         return doc;
     }
-    //functions to help with the output from corenlpProcess
+    
+    // function to help with the output from corenlpProcess
     public static String mkString(String [] sa, String sep) {
         StringBuilder os = new StringBuilder();
         for(int i = 0; i < sa.length; i ++) {
@@ -227,6 +220,7 @@ public class EchoServerJSON {
         }
         return os.toString();
     }
+    
     public static String mkString(int [] sa, String sep) {
         StringBuilder os = new StringBuilder();
         for(int i = 0; i < sa.length; i ++) {
@@ -235,6 +229,7 @@ public class EchoServerJSON {
         }
         return os.toString();
     }
+    
     //Initialize the server and begin listening on port 4444
     public static void main(String[] args) throws Exception{
         EchoServerJSON server = new EchoServerJSON();
