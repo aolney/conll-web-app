@@ -1,10 +1,23 @@
 /*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
+ * Copyright (C) 2018 noahcoomer <nbcoomer@gmail.com>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 package edu.memphis.iis.conllwebapp;
 
+// Java imports
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
@@ -13,28 +26,31 @@ import static junit.framework.Assert.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-//external project imports
+// JSON
 import org.json.simple.JSONObject;
+
+// Mateplus poc
 import edu.memphis.iis.MatePlusProcessor;
 import edu.memphis.iis.CoNLL09MemoryWriter;
+
+// Processors
 import org.clulab.processors.corenlp.CoreNLPProcessor;
 import org.clulab.struct.CorefMention;
 import org.clulab.struct.DirectedGraphEdgeIterator;
-import org.clulab.discourse.rstparser.DiscourseTree;
-//import org.clulab.serialization.
 import org.clulab.processors.Document;
 import org.clulab.processors.Processor;
 import org.clulab.processors.Sentence;
-
 import org.clulab.swirl2.Reader;
-import edu.memphis.iis.conllwebapp.CoNLLObject;
-//import static reader.conllreader.*;
 
+// Project
+import edu.memphis.iis.conllwebapp.CoNLLObject;
 
 
 /**
  *
- * @author noah
+ * @author noahcoomer <nbcoomer@gmail.com>
+ * @created-on Feb 9, 2018
+ * @project-name CoNLLWebApp
  */
 public class EchoServerJSON {
     private ServerSocket serverSocket;
@@ -44,6 +60,7 @@ public class EchoServerJSON {
     
     //start the server and wait for input
     public void start(int port) throws Exception{
+        
         try{
             serverSocket = new ServerSocket(port);
 
@@ -51,6 +68,8 @@ public class EchoServerJSON {
             clientSocket = serverSocket.accept();
             out = new PrintWriter(clientSocket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+            
+            out.println("Welcome to MatePlus-Processors");
 
             String inputLine;
             while ((inputLine = in.readLine()) != null){
@@ -61,19 +80,11 @@ public class EchoServerJSON {
                 
                 out.println("MatePlus processing beginning");
                 String mateplus_output = mateplusProcess(inputLine);
-                out.print(mateplus_output);
-                out.println();
                 out.println("MatePlus exitted successfully");
                 
                 out.println("CoreNLP processing beginning");
-                //TODO
-                /*
-                ClassLoader classLoader = getClass().getClassLoader();
-                File file = new File(classLoader.getResource("input.txt").getFile());
-                String filepath = file.getPath();*/
                 Document corenlp_output = corenlpProcess(mateplus_output);
                 out.println("CoreNLP exitted successfully.");
-                
                 
                 //codify new object as json and return it in plain text
                 /**
@@ -91,8 +102,6 @@ public class EchoServerJSON {
     }
     
     public CoNLLObject mergeAnnotations(String mateplus, Document corenlp){
-        
-        
         CoNLLObject magic = new CoNLLObject();
         return magic;
     }
@@ -103,80 +112,18 @@ public class EchoServerJSON {
         processor.initModels();
 
         CoNLL09MemoryWriter writer = new CoNLL09MemoryWriter();
-        //writer.debug = true;
-
-        //List<Double> times = new ArrayList<Double>();
-        /*
-        File file = File.createTempFile("temp",".txt");
-        BufferedWriter magic = new BufferedWriter(new FileWriter(file));
-        magic.write(inputStr);
-        writer.close();
-        String ret = "";
-        ret += processor.parse(inputStr);*/
-        //String ret = "";
         writer.write(processor.parse(inputStr));
+        
         List<String> mateplus = writer.getBuffer();
+        
+        // This is where our code is probably going to break
         String output = "";
         for (String s: mateplus){
             output += s;
             output += "\n";
         }
         output+= "\n";
-        //return ret;
-        
-        // Unsure about this line, may need to use it for our purposes
-        //
-        //writer.write(processor.parse(inputStr));
-        
-        // Debug
-        /*
-        ClassLoader classLoader = getClass().getClassLoader();
-        // Line below should be changed based on what type of input we want to feed the program
-        File file = new File(classLoader.getResource("input.txt").getFile());
-        BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
-        String ret = "";
-        String line;
-        while ((line = br.readLine()) != null) {
-            long startTime = System.nanoTime();
-            //writer.write(processor.parse(line));
-            ret += processor.parse(line);
-            ret += "\n";
-            double elapsedMs = (System.nanoTime() - startTime) / 1000000.0;
-            assertTrue(elapsedMs > 0.0);
-            times.add(elapsedMs);
-        }
-        br.close();
-
-        assertTrue(times.size() > 1);
-
-        double min = times.get(0);
-        double max = min;
-        double sum = 0.0;
-        for(double d: times) {
-            if (d < min) min = d;
-            if (d > max) max = d;
-            sum += d;
-        }
-        double mean = sum / times.size();
-
-        double sumSqErr = 0.0;
-        for(double d: times) {
-            sumSqErr += Math.pow(mean - d, 2.0);
-        }
-        double stdev = Math.sqrt(sumSqErr / times.size());
-
-
-        System.out.println("Count: " + times.size());
-        System.out.println(String.format("Min:%.2f Mean/SD:%.2f,%.2f Max:%.2f", min, mean, stdev, max));
-        
-        
-        // Create a conll txt file for testing purposes
-        //      -->May need this for later to allow passing of vars<--
-        //
-        //PrintWriter outFile = new PrintWriter("conll-txt.txt");
-        //outFile.println(ret);
-        */
-        
+        System.out.println(output);
         return output;
     }
     
@@ -185,94 +132,67 @@ public class EchoServerJSON {
         Processor proc = new CoreNLPProcessor(true, true, 1, 200);
         Reader annotator = new Reader();
         
-        // annotator needs a file, so create a temporary file with inputStr
+        // Processor needs a file, so create a temporary file with inputStr
         File file = File.createTempFile("temp",".txt");
         BufferedWriter writer = new BufferedWriter(new FileWriter(file));
         writer.write(inputStr);
         writer.close();
         
-        boolean debug = false;
-        if(debug){
-            BufferedReader br = new BufferedReader(new FileReader(file));
-            String line;
-            System.out.println("output written");
-            while ((line = br.readLine()) != null){
-                System.out.println(line);
-            }
-        }
-
         Document doc = annotator.read(file, proc, true);
-        /* Debug
+        
+        boolean debug = false;
+        if (debug){
+            int sentenceCount = 0;
+            for (Sentence sentence: doc.sentences()) {
+                System.out.println("Sentence #" + sentenceCount + ":");
+                System.out.println("Tokens: " + mkString(sentence.words(), " "));
+                System.out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));
+                System.out.println("End character offsets: " + mkString(sentence.endOffsets(), " "));
+                // these annotations are optional, so they are stored using Option objects, hence the isDefined checks
+                if(sentence.lemmas().isDefined()){
+                    System.out.println("Lemmas: " + mkString(sentence.lemmas().get(), " "));
+                }
+                if(sentence.tags().isDefined()){
+                    System.out.println("POS tags: " + mkString(sentence.tags().get(), " "));
+                }
+                if(sentence.chunks().isDefined()){
+                    System.out.println("Chunks: " + mkString(sentence.chunks().get(), " "));
+                }
+                if(sentence.entities().isDefined()){
+                    System.out.println("Named entities: " + mkString(sentence.entities().get(), " "));
+                }
+                if(sentence.norms().isDefined()){
+                    System.out.println("Normalized entities: " + mkString(sentence.norms().get(), " "));
+                }
+                if(sentence.dependencies().isDefined()) {
+                    System.out.println("Syntactic dependencies:");
+                    DirectedGraphEdgeIterator<String> iterator = new
+                        DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
+                    while(iterator.hasNext()) {
+                        scala.Tuple3<Object, Object, String> dep = iterator.next();
+                        // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
+                        System.out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                    }
+                }
+                if(sentence.semanticRoles().isDefined()){
+                    System.out.println("Semantic dependencies:");
+                    DirectedGraphEdgeIterator<String> iterator = new
+                        DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
+                    while(iterator.hasNext()) {
+                        scala.Tuple3<Object, Object, String> dep = iterator.next();
+                        // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
+                        System.out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                    }
 
-        String ret = "";
-        for (Sentence sentence: doc.sentences()){
-            ret += sentence;
-        }*/
-        //PrintWriter out = new PrintWriter(new FileWriter("output.txt"));
-        
-        //CoNLLReader srlAnnotator = new CoNLLReader();
-        
-        //List<List> out1 = srlAnnotator.readCoNLL(out);
-        
-        /**
-        try (PrintWriter outputFile = new PrintWriter("srlDoc.txt")) {
-            outputFile.println(srlDoc);
-        }
-        */
-        
-        // Some console output that helps with debugging
-        
-        
-        int sentenceCount = 0;
-        for (Sentence sentence: doc.sentences()) {
-            System.out.println("Sentence #" + sentenceCount + ":");
-            System.out.println("Tokens: " + mkString(sentence.words(), " "));
-            System.out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));
-            System.out.println("End character offsets: " + mkString(sentence.endOffsets(), " "));
-            // these annotations are optional, so they are stored using Option objects, hence the isDefined checks
-            if(sentence.lemmas().isDefined()){
-                System.out.println("Lemmas: " + mkString(sentence.lemmas().get(), " "));
-            }
-            if(sentence.tags().isDefined()){
-                System.out.println("POS tags: " + mkString(sentence.tags().get(), " "));
-            }
-            if(sentence.chunks().isDefined()){
-                System.out.println("Chunks: " + mkString(sentence.chunks().get(), " "));
-            }
-            if(sentence.entities().isDefined()){
-                System.out.println("Named entities: " + mkString(sentence.entities().get(), " "));
-            }
-            if(sentence.norms().isDefined()){
-                System.out.println("Normalized entities: " + mkString(sentence.norms().get(), " "));
-            }
-            if(sentence.dependencies().isDefined()) {
-                System.out.println("Syntactic dependencies:");
-                DirectedGraphEdgeIterator<String> iterator = new
-                    DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
-                while(iterator.hasNext()) {
-                    scala.Tuple3<Object, Object, String> dep = iterator.next();
-                    // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
-                    System.out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
                 }
-            }
-            if(sentence.semanticRoles().isDefined()){
-                System.out.println("Semantic dependencies:");
-                DirectedGraphEdgeIterator<String> iterator = new
-                    DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
-                while(iterator.hasNext()) {
-                    scala.Tuple3<Object, Object, String> dep = iterator.next();
-                    // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
-                    System.out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                if(sentence.syntacticTree().isDefined()) {
+                    System.out.println("Constituent tree: " + sentence.syntacticTree().get());
+                    // see the org.clulab.struct.Tree class for more information
+                    // on syntactic trees, including access to head phrases/words
                 }
-                
+                sentenceCount += 1;
+                System.out.println("\n");
             }
-            if(sentence.syntacticTree().isDefined()) {
-                System.out.println("Constituent tree: " + sentence.syntacticTree().get());
-                // see the org.clulab.struct.Tree class for more information
-                // on syntactic trees, including access to head phrases/words
-            }
-            sentenceCount += 1;
-            System.out.println("\n");
         }
         return doc;
     }
