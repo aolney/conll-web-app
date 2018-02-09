@@ -39,6 +39,8 @@ import org.jgrapht.*;
  * @created-on Feb 9, 2018
  * @project-name CoNLLWebApp
  */
+
+// Currently unused, kept for future use if Reader.scala become deprecated
 public class CoNLLReader {
     
     int argConflictCount = 0;

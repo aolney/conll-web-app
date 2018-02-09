@@ -24,6 +24,8 @@ package edu.memphis.iis.conllwebapp;
  * @created-on Feb 9, 2018
  * @project-name CoNLLWebApp
  */
+
+// Currently unused, kept for future implementation
 public class CoNLLObject {
     int id;
     String form;
