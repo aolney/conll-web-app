@@ -67,8 +67,9 @@ public class EchoServerJSONTest {
 
     /**
      * Test of corenlpProcess method, of class EchoServerJSON.
-     */
+     
     @Test
+    
     public void testCorenlpProcess() throws Exception {
         System.out.println("corenlpProcess test");
         ClassLoader classLoader = getClass().getClassLoader();
@@ -78,7 +79,7 @@ public class EchoServerJSONTest {
         instance.corenlpProcess(file);
         // TODO review the generated test code and remove the default call to fail.
         //fail("The test case is a prototype.");
-    }
+    }*/
 
     /**
      * Test of main method, of class EchoServerJSON.

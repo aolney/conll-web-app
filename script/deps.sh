@@ -26,6 +26,11 @@ function install_one() {
 install_one anna-3.3.jar anna-dep
 install_one mateplus.jar mateplus-dep
 
+echo "INSTALLING MATEPLUS-POC CLASSES TO LOCAL MVN REPOSITORY"
+cd ../mateplus-poc
+mvn install -Dmaven.test.skip=true
+cd $SCRIPT_DIR
+
 echo "CLEANING UP DOWNLOADED FILES"
 rm *.pom *.jar
 
