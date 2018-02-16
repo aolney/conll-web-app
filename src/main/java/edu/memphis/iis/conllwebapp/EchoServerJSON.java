@@ -34,6 +34,7 @@ import org.json.simple.JSONObject;
 import edu.memphis.iis.MatePlusProcessor;
 import edu.memphis.iis.CoNLL09MemoryWriter;
 
+
 // Processors
 import org.clulab.processors.corenlp.CoreNLPProcessor;
 import org.clulab.struct.CorefMention;
@@ -43,8 +44,10 @@ import org.clulab.processors.Processor;
 import org.clulab.processors.Sentence;
 import org.clulab.swirl2.Reader;
 
-// Project
-import edu.memphis.iis.conllwebapp.CoNLLObject;
+// Stanford Sentence Tokenizer
+import edu.stanford.nlp.process.DocumentPreprocessor;
+import edu.stanford.nlp.ling.HasWord;
+
 
 
 /**
@@ -78,13 +81,30 @@ public class EchoServerJSON {
                     out.println("Good bye.");
                     break;
                 }
+                // split our input up into sentences
+                List<List> sentences = sentenceTokenizer(inputLine);
                 
+                /*
+                // format input one sentence per line
+                StringBuilder sb = new StringBuilder();
+                for(List<String> sentence: sentences){
+                    for(String word: sentence){
+                        sb.append(word + " ");                        
+                    }
+                    sb.append("\n\n");
+                }
+                String formattedInput = sb.toString();
+                */
+                
+                // Run Mate and return a CoNLL formatted string
                 out.println("MatePlus processing started...");
-                String mateplus_output = mateplusProcess(inputLine);
+                String mateplus_output = mateplusProcess(sentences);
                 out.println("MatePlus exitted successfully.");
                 
                 //System.out.println(mateplus_output);
                 
+                
+                // Run processors and add semantic role labels to processor output
                 out.println("CoreNLP processing started...");
                 Document corenlp_output = corenlpProcess(mateplus_output);
                 out.println("CoreNLP exitted successfully.");
@@ -106,41 +126,64 @@ public class EchoServerJSON {
             return;     
         }
     }
+        
+    // Need this function in order to pass large inputs to Mate+ b/c it assumes one sentence per line
+    public List<List> sentenceTokenizer(String inputStr) throws IOException{
+        
+        File file = File.createTempFile("temp",".txt");
+        BufferedWriter writer = new BufferedWriter(new FileWriter(file));
+        writer.write(inputStr);
+        writer.close();
+        String path = file.getAbsolutePath();
+        
+        DocumentPreprocessor dp = new DocumentPreprocessor(path);
+        List<List> sentences = new ArrayList<>();
+        for (List<HasWord> sentence : dp) {
+            List<String> small = new ArrayList<>();
+            for (HasWord s: sentence){
+                small.add(s.word());                
+            }
+            sentences.add(small);
+        }
+        
+        //clean up cache and return
+        file.delete();
+        return sentences;
+    }
     
-    public String mateplusProcess(String inputStr) throws Exception{
+    // Run Mate+ and get semantic role labels
+    public String mateplusProcess(List<List> sentences) throws Exception{
         
         // initialize processor, models, and conll writer
         MatePlusProcessor processor = new MatePlusProcessor();
         processor.initModels();
-        CoNLL09MemoryWriter writer = new CoNLL09MemoryWriter();
+        CoNLL09MemoryWriter writer = new CoNLL09MemoryWriter();        
         
-        // separate each line for parsing by punctuation marks
-        String formattedInputStr = "";
-        for (int x = 0; x < inputStr.length();x++){
-            formattedInputStr += inputStr.charAt(x);
-            if(inputStr.charAt(x) == '.' || inputStr.charAt(x) == '?' || inputStr.charAt(x) == '!'){
-                formattedInputStr += "\n";
+        StringBuilder sb = new StringBuilder();
+        for (List<String> sentence : sentences) {
+            for (String word : sentence) {               
+                sb.append(word + " ");
             }
+            sb.append("\n\n");
         }
+        String formattedInput = sb.toString();
+        String[] stuff = formattedInput.split("\n\n");
         
-        // split then parse individual sentences
-        String lines[] = formattedInputStr.split("\n");
-        for(String line: lines){
-            writer.write(processor.parse(line));
-        }
+        for (String sentence:stuff)
+            writer.write(processor.parse(sentence));
         
-        // format string buffer into single string with punctuation delimitation
-        List<String> mateplus = writer.getBuffer();
-        String ret = "";
-        for(String line: mateplus){
-            ret += line;
-            ret += "\n\n";
+        List<String> buffer = writer.getBuffer();
+        
+        StringBuilder ret = new StringBuilder();
+        for(String element: buffer){
+            System.out.println(element);
+            ret.append(element);
+            ret.append("\n\n");
         }
-
-        return ret;
+        return ret.toString();
     }
     
-    // run the coreNlpProcessor
+    // Run Processors and add syntactic role labelling
     public Document corenlpProcess(String inputStr) throws FileNotFoundException, IOException{
 
         Processor proc = new CoreNLPProcessor(true, true, 1, 200);
@@ -154,7 +197,7 @@ public class EchoServerJSON {
         
         Document doc = annotator.read(file, proc, true);
         
-        boolean debug1 = false;
+        boolean debug1 = true;
         if (debug1){
             int sentenceCount = 0;
             for (Sentence sentence: doc.sentences()) {
@@ -208,6 +251,8 @@ public class EchoServerJSON {
                 System.out.println("\n");
             }
         }
+        // clean up cache and return
+        file.delete();
         return doc;
     }
     
