@@ -130,6 +130,7 @@ public class EchoServerJSON {
     // Need this function in order to pass large inputs to Mate+ b/c it assumes one sentence per line
     public List<List> sentenceTokenizer(String inputStr) throws IOException{
         
+        //write our input string to a file because DocPreProcessor
         File file = File.createTempFile("temp",".txt");
         BufferedWriter writer = new BufferedWriter(new FileWriter(file));
         writer.write(inputStr);
@@ -158,25 +159,24 @@ public class EchoServerJSON {
         MatePlusProcessor processor = new MatePlusProcessor();
         processor.initModels();
         CoNLL09MemoryWriter writer = new CoNLL09MemoryWriter();        
-        
+               
         StringBuilder sb = new StringBuilder();
         for (List<String> sentence : sentences) {
-            for (String word : sentence) {               
+            for (String word: sentence) {               
                 sb.append(word + " ");
             }
             sb.append("\n\n");
         }
         String formattedInput = sb.toString();
-        String[] stuff = formattedInput.split("\n\n");
+        String[] splitInput = formattedInput.split("\n\n");
         
-        for (String sentence:stuff)
+        for (String sentence: splitInput)
             writer.write(processor.parse(sentence));
         
-        List<String> buffer = writer.getBuffer();
-        
+        List<String> buffer = writer.getBuffer();        
         StringBuilder ret = new StringBuilder();
         for(String element: buffer){
-            System.out.println(element);
+            //System.out.println(element);
             ret.append(element);
             ret.append("\n\n");
         }
@@ -189,7 +189,7 @@ public class EchoServerJSON {
         Processor proc = new CoreNLPProcessor(true, true, 1, 200);
         Reader annotator = new Reader();
         
-        // Processor needs a file, so create a temporary file with inputStr
+        // Processor needs a file, so create a temporary file and write our input string to that file
         File file = File.createTempFile("temp",".txt");
         BufferedWriter writer = new BufferedWriter(new FileWriter(file));
         writer.write(inputStr);

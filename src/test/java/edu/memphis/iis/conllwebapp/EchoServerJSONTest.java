@@ -5,13 +5,23 @@
  */
 package edu.memphis.iis.conllwebapp;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.clulab.processors.corenlp.CoreNLPProcessor;
+import org.clulab.struct.CorefMention;
+import org.clulab.struct.DirectedGraphEdgeIterator;
+import org.clulab.processors.Document;
+import org.clulab.processors.Processor;
+import org.clulab.processors.Sentence;
+import org.clulab.swirl2.Reader;
 import static org.junit.Assert.*;
+import scala.Console;
 
 /**
  *
@@ -19,7 +29,8 @@ import static org.junit.Assert.*;
  */
 public class EchoServerJSONTest {
     
-    public EchoServerJSONTest() {
+    public EchoServerJSONTest() throws Exception {
+
     }
     
     @BeforeClass
@@ -53,33 +64,38 @@ public class EchoServerJSONTest {
 
     /**
      * Test of mateplusProcess method, of class EchoServerJSON.
+     * @throws java.lang.Exception
      
     @Test
     public void testMateplusProcess() throws Exception {
-        System.out.println("mateplusProcess");
+        System.out.println("mateplusProcess Test");
+        
+        ClassLoader classLoader = getClass().getClassLoader();
+        File file = new File(classLoader.getResource("test.txt").getFile());
+        
         EchoServerJSON instance = new EchoServerJSON();
-        String expResult = "";
-        String result = instance.mateplusProcess();
-        assertEquals(expResult, result);
-        // TODO review the generated test code and remove the default call to fail.
-        fail("The test case is a prototype.");
+        BufferedReader br = new BufferedReader(new FileReader(file));
+        StringBuilder sb = new StringBuilder();
+        String line;
+        while ((line=br.readLine()) != null)
+            sb.append(line);
+        
+        String inputLine = sb.toString();
+        String output = instance.mateplusProcess(inputLine);
+        
+        System.out.println(output);
     }*/
 
     /**
      * Test of corenlpProcess method, of class EchoServerJSON.
-     
+     */
     @Test
-    
     public void testCorenlpProcess() throws Exception {
-        System.out.println("corenlpProcess test");
-        ClassLoader classLoader = getClass().getClassLoader();
-        File file = new File(classLoader.getResource("conll-txt.txt").getFile());
-        EchoServerJSON instance = new EchoServerJSON();
-        instance.start(4444);
-        instance.corenlpProcess(file);
+
+        //instance.corenlpProcess(inputLine);
         // TODO review the generated test code and remove the default call to fail.
         //fail("The test case is a prototype.");
-    }*/
+    }
 
     /**
      * Test of main method, of class EchoServerJSON.
