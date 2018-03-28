@@ -27,9 +27,6 @@ import static junit.framework.Assert.assertTrue;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-// JSON
-import org.json.simple.JSONObject;
-
 // Mateplus poc
 import edu.memphis.iis.MatePlusProcessor;
 import edu.memphis.iis.CoNLL09MemoryWriter;
@@ -43,11 +40,10 @@ import org.clulab.processors.Document;
 import org.clulab.processors.Processor;
 import org.clulab.processors.Sentence;
 import org.clulab.swirl2.Reader;
+import org.clulab.discourse.rstparser.DiscourseTree;
 
-// Stanford Sentence Tokenizer
-import edu.stanford.nlp.process.DocumentPreprocessor;
-import edu.stanford.nlp.ling.HasWord;
-
+// Apache Sentence Tokenizer
+import opennlp.tools.sentdetect.*;
 
 /**
  *
@@ -64,6 +60,9 @@ public class EchoServerJSON {
     CoNLL09MemoryWriter writer;
     Processor proc;
     Reader annotator;
+    File modelFile;
+    SentenceModel model;
+    SentenceDetectorME sentenceDetector;
     
     public EchoServerJSON() throws IOException{
         // Initialize Clulab NLP Processor and CoNLL Reader
@@ -73,8 +72,14 @@ public class EchoServerJSON {
         // Initialize Mate+ Processor and models and memory writer
         processor = new MatePlusProcessor();
         processor.initModels();
-        writer = new CoNLL09MemoryWriter();       
+        writer = new CoNLL09MemoryWriter();
+        
+        // Sentence Tokenizer Models
+        modelFile = new File("/home/noah/NetBeansProjects/conll-web-app/en-sent.bin");
+        model = new SentenceModel(modelFile);
+        sentenceDetector = new SentenceDetectorME(model);
     }
+    
     
     //start the server and wait for input
     public void start(int port) throws Exception{     
@@ -87,8 +92,9 @@ public class EchoServerJSON {
             out = new PrintWriter(clientSocket.getOutputStream(), true);
             in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             
-            out.println("Welcome to the Syntactic and Semantic Role Labelling Pipeline.");
-            out.println("Enter a text that you would like to add annotations to: ");
+            out.println("Sucessfully connected to Discourse, Semantic, and Syntactic Parsing Agent.");
+            out.println("Written by: Noah Coomer, Andrew Olney, & Craig Kelly");
+            out.println("Enter a sentence you would like to have annotated: ");
 
             String inputLine;
             while ((inputLine = in.readLine()) != null){
@@ -98,55 +104,29 @@ public class EchoServerJSON {
                 }
                 System.out.println(inputLine);
                 
+                // consider declaring these methods outside this loop so there is no memory leak
+                String[] sentences = opennlpSentenceTokenizer(inputLine);
+
+                out.println("MatePlus started (Semantic Parser, POS tagger, Lemmatizer)...");
+                long t1 = System.currentTimeMillis();
+                String mateplus_output = mateTest(sentences);
+                long t2 = System.currentTimeMillis();
+                out.println("MatePlus exitted successfully.");
+                out.println("Time: " + (t2 - t1) + " ms");
+
+                //out.println(mateplus_output);
+                out.println("CoreNLP processing pipeline started (Syntactic, Discourse, Constituency, Coreference Parsing)...");
+                t1 = System.currentTimeMillis();
+                Document corenlp_output = corenlpProcess(mateplus_output);
+                t2 = System.currentTimeMillis();
+                out.println("CoreNLP exitted successfully.");
+                out.println("Time: " + (t2 - t1) + " ms");
+
+                //debugInput(corenlp_output, out);
                 
-                // Testing pipeline
-                boolean test = true;
-                if (test){
-                    File file = new File("/home/noah/NetBeansProjects/wsj_traversal/output_large_sentences.txt");
-                    BufferedReader br = new BufferedReader(new FileReader(file));
-                    String line;
-                    while ((line = br.readLine()) != null){
-                        // split our input up into sentences
-                        List<List> sentences = sentenceTokenizer(line);
-
-                        // Run Mate and return a CoNLL formatted string
-                        out.println("MatePlus processing started...");
-                        String mateplus_output = mateplusProcess(sentences);
-                        out.println("MatePlus exitted successfully.");
-
-                        //System.out.println(mateplus_output);
-                        // Run processors and add semantic role labels to processor output
-                        out.println("CoreNLP processing started...");
-                        Document corenlp_output = corenlpProcess(mateplus_output);
-                        out.println("CoreNLP exitted successfully.");
-                    }
-                //codify new object as json and return it in plain text
-                /**
-                JSONObject object = new JSONObject();
-                object.put("result", output);
-                StringWriter jsonOut = new StringWriter();
-                object.writeJSONString(jsonOut);
-                String jsonText = jsonOut.toString();
-                out.println(jsonText);
-                * **/
-                }
                 
-                // Preserved Execution Pipeline
-                else{
-                    //out.println("you fuckt up");
-                    List<List> sentences = sentenceTokenizer(inputLine);
-
-                    // Run Mate and return a CoNLL formatted string
-                    out.println("MatePlus processing started...");
-                    String mateplus_output = mateplusProcess(sentences);
-                    out.println("MatePlus exitted successfully.");
-
-                    //System.out.println(mateplus_output);
-                    // Run processors and add semantic role labels to processor output
-                    out.println("CoreNLP processing started...");
-                    Document corenlp_output = corenlpProcess(mateplus_output);
-                    out.println("CoreNLP exitted successfully.");
-                }
+               
+                
             }
         } catch(IOException e) {
             System.out.println("Could not start server on port: " + port);
@@ -157,60 +137,14 @@ public class EchoServerJSON {
     }
     
     
+    /* <----------------------- PIPELINE FUNCTIONS ------------------------> */
     
-    
-    // Stanford DocumentPreProcessor sentence-level tokenization
-    // Need this function in order to pass large inputs to Mate+ b/c it assumes one sentence per line
-    public List<List> sentenceTokenizer(String inputStr) throws IOException{
-        
-        //write our input string to a file because DocPreProcessor
-        File file = File.createTempFile("temp",".txt");
-        BufferedWriter writer1 = new BufferedWriter(new FileWriter(file));
-        writer1.write(inputStr);
-        writer1.close();
-        String path = file.getAbsolutePath();
-        
-        DocumentPreprocessor dp = new DocumentPreprocessor(path);
-        List<List> sentences = new ArrayList<>();
-        for (List<HasWord> sentence : dp) {
-            List<String> small = new ArrayList<>();
-            for (HasWord s: sentence){
-                small.add(s.word());                
-            }
-            sentences.add(small);
-        }
-        
-        //clean up cache and return
-        file.delete();
-        return sentences;
+    public String[] opennlpSentenceTokenizer(String inputStr) throws IOException{ 
+        // separate the lines sentences into an array of Strings
+        String[] sentences = sentenceDetector.sentDetect(inputStr);
+        return sentences;     
     }
     
-    // Run Mate+, return CoNLL09 formatted string where each sentence is \n\n delimited
-    // 
-    public String mateplusProcess(List<List> sentences) throws Exception{                   
-        StringBuilder sb = new StringBuilder();
-        for (List<String> sentence : sentences) {
-            for (String word: sentence) {               
-                sb.append(word + " ");
-            }
-            sb.append("\n\n");
-        }
-        String formattedInput = sb.toString();
-        String[] splitInput = formattedInput.split("\n\n");
-        
-        for (String sentence: splitInput)
-            writer.write(processor.parse(sentence));
-        
-        List<String> buffer = writer.getBuffer();
-        StringBuilder ret = new StringBuilder();
-        for(String element: buffer){
-            // Each element is an entire sentence in CoNLL formatting
-            ret.append(element);
-            ret.append("\n\n");
-        }
-        writer.clear();
-        return ret.toString();      
-    }
     
     // Run Processors and add syntactic role labelling
     public Document corenlpProcess(String inputStr) throws FileNotFoundException, IOException{
@@ -228,9 +162,13 @@ public class EchoServerJSON {
         writer1.close();
         
         Document doc = annotator.read(file, proc, true);
+        proc.parse(doc);
+        proc.resolveCoreference(doc);
+        proc.discourse(doc);
+        
         
         // Print out all our info to the system console
-        boolean debug1 = true;
+        boolean debug1 = false;
         if (debug1)
             debugConsole(doc);
             
@@ -239,15 +177,129 @@ public class EchoServerJSON {
         return doc;
     }
     
-    /*
-    public String mateTest(List<List> sentences) throws IOException{
+     public String mateTest(String[] corpus) throws Exception{                   
+        for (String sentence: corpus)
+            writer.write(processor.parse(sentence));
+        
+        List<String> buffer = writer.getBuffer();
+        StringBuilder ret = new StringBuilder();
+        for(String element: buffer){
+            // Each element is an entire sentence in CoNLL formatting
+            ret.append(element);
+            ret.append("\n\n");
+        }
+        writer.clear();
+        return ret.toString();      
+    }
+     
+     
+    /* <----------------------- TEST FUNCTIONS ------------------------> */ 
+     
+    public void testPipeline() throws FileNotFoundException, IOException, Exception
+    {
+        BufferedReader br = new BufferedReader(new FileReader("/home/noah/NetBeansProjects/wsj_traversal/output_large_sentences.txt"));
+        String line;
+        File file = new File("test_data_final.txt");
+        if (!file.exists()) {
+            file.createNewFile();
+        }
+        BufferedWriter bw = new BufferedWriter(new FileWriter(file));
+        bw.write("MateTokens, CluTokens, Total Sentences, Pipeline Time, Sentence Tokenization Time, Mate Time, Clu Time");
+        bw.newLine();
+        bw.close();
+        long pipelineStart;
+        long pipelineEnd;
+        long sentenceStart;
+        long sentenceEnd;
+        long mateStart;
+        long mateEnd;
+        long cluStart;
+        long cluEnd;
+        String mateplus_output;
+        Document doc;
+        double sentenceTime;
+        double mateTime;
+        double cluTime;
+        double pipelineTime;
+        int sentenceCount;
+        int cluTokens;
+        int mateTokens;
+        //int totalSentences = 0;
+        while ((line = br.readLine()) != null) {
 
+            pipelineStart = System.currentTimeMillis();
+
+            sentenceStart = System.currentTimeMillis();
+            String[] sentences = opennlpSentenceTokenizer(line);
+            sentenceEnd = System.currentTimeMillis();
+
+            mateStart = System.currentTimeMillis();
+            mateplus_output = mateTest(sentences);
+            mateEnd = System.currentTimeMillis();
+
+            cluStart = System.currentTimeMillis();
+            doc = corenlpProcess(mateplus_output);
+            cluEnd = System.currentTimeMillis();
+
+            pipelineEnd = System.currentTimeMillis();
+
+            // Get specific pipeline timings
+            sentenceTime = (sentenceEnd - sentenceStart);
+            mateTime = (mateEnd - mateStart);
+            cluTime = (cluEnd - cluStart);
+            pipelineTime = (pipelineEnd - pipelineStart);
+
+            // Get total sentences processed in time steps above
+            sentenceCount = sentences.length;
+
+            // NOTE ON TOKENIZATION TESTS
+            //      WE CAN FIND A SENTENCE LEVEL TOKENIZATION VIA A LIST IMPLEMENTATION
+            //      GO BACK TO THIS METHOD IF MY DATA IS REALLY FAR OFF
+            // Get the amount of processed tokens in clu
+            cluTokens = 0;
+            for (Sentence s : doc.sentences()) {
+                cluTokens += s.words().length;
+            }
+
+            // Get the amount of processed tokens in mate
+            mateTokens = 0;
+            String[] inter = mateplus_output.split("\n\n");
+            for (String s : inter) {
+                String[] info = s.split("\n");
+                mateTokens += info.length;
+            }
+
+            writeInfoToTestFile(file, sentenceTime, mateTime, cluTime, pipelineTime, sentenceCount, cluTokens, mateTokens);
+
+            sentences = null;
+            inter = null;
+        }
+        //bw.write("Total sentences: " + totalSentences);
+        bw.close();
+        br.close();
+                
     }
     
-    public Document procTest(File file) throws IOException{
+    public void writeInfoToTestFile(File destination, double sentenceTime, 
+        double mateTime, double cluTime, double pipelineTime, int sentenceCount, int cluTokens, int mateTokens) throws IOException{
         
+        BufferedWriter bw = new BufferedWriter(new FileWriter(destination, true));
+        String delimiter = "\t";
+        String st = String.valueOf(sentenceTime);
+        String mt = String.valueOf(mateTime);
+        String ct = String.valueOf(cluTime);
+        String pt = String.valueOf(pipelineTime);
+        String sc = String.valueOf(sentenceCount);
+        String clu = String.valueOf(cluTokens);
+        String mate = String.valueOf(mateTokens);
+        
+        // Write the sentences output in the form mateTokens, cluTokens, total sentences, time to run total sentences through pipeline,
+        //      time to format input, time to run mate, time to run clu
+        bw.write(mate + delimiter + clu + delimiter + sc + delimiter + pt + delimiter + st + delimiter + mt + delimiter + ct);
+        bw.newLine();
+        bw.close();
     }
-    */
+    
     
     /* <----------------------- MAIN FUNCTION ------------------------> */
     
@@ -325,9 +377,102 @@ public class EchoServerJSON {
                 System.out.println("Constituent tree: " + sentence.syntacticTree().get());
                 // see the org.clulab.struct.Tree class for more information
                 // on syntactic trees, including access to head phrases/words
+            }                  
+            if(doc.coreferenceChains().isDefined()) {
+                // these are scala.collection Iterator and Iterable (not Java!)
+                scala.collection.Iterator<scala.collection.Iterable<CorefMention>> chains = doc.coreferenceChains().get().getChains().iterator();
+                while(chains.hasNext()) {
+                    scala.collection.Iterator<CorefMention> chain = chains.next().iterator();
+                    System.out.println("Found one coreference chain containing the following mentions:");
+                    while(chain.hasNext()) {
+                        CorefMention mention = chain.next();
+                        // note that all these offsets start at 0 too
+                        System.out.println("\tsentenceIndex:" + mention.sentenceIndex() +
+                            " headIndex:" + mention.headIndex() +
+                            " startTokenOffset:" + mention.startOffset() +
+                            " endTokenOffset:" + mention.endOffset());
+                    }
+                }
             }
+            if(doc.discourseTree().isDefined()) {
+                DiscourseTree tree = doc.discourseTree().get();
+                System.out.println("Discourse tree:\n" + tree);
+            }
+            
             sentenceCount += 1;
             System.out.println("\n");
+        }       
+    }
+    public void debugInput(Document doc, PrintWriter out){
+        int sentenceCount = 0;
+        for (Sentence sentence : doc.sentences()) {
+            out.println("Sentence #" + sentenceCount + ":");
+            out.println("Tokens: " + mkString(sentence.words(), " "));
+            out.println("Start character offsets: " + mkString(sentence.startOffsets(), " "));
+            out.println("End character offsets: " + mkString(sentence.endOffsets(), " "));
+            // these annotations are optional, so they are stored using Option objects, hence the isDefined checks
+            if (sentence.lemmas().isDefined()) {
+                out.println("Lemmas: " + mkString(sentence.lemmas().get(), " "));
+            }
+            if (sentence.tags().isDefined()) {
+                out.println("POS tags: " + mkString(sentence.tags().get(), " "));
+            }
+            if (sentence.chunks().isDefined()) {
+                out.println("Chunks: " + mkString(sentence.chunks().get(), " "));
+            }
+            if (sentence.entities().isDefined()) {
+                out.println("Named entities: " + mkString(sentence.entities().get(), " "));
+            }
+            if (sentence.norms().isDefined()) {
+                out.println("Normalized entities: " + mkString(sentence.norms().get(), " "));
+            }
+            if (sentence.dependencies().isDefined()) {
+                out.println("Syntactic dependencies:");
+                DirectedGraphEdgeIterator<String> iterator = new DirectedGraphEdgeIterator<String>(sentence.dependencies().get());
+                while (iterator.hasNext()) {
+                    scala.Tuple3<Object, Object, String> dep = iterator.next();
+                    // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
+                    out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                }
+            }
+            if (sentence.semanticRoles().isDefined()) {
+                out.println("Semantic dependencies:");
+                DirectedGraphEdgeIterator<String> iterator = new DirectedGraphEdgeIterator<String>(sentence.semanticRoles().get());
+                while (iterator.hasNext()) {
+                    scala.Tuple3<Object, Object, String> dep = iterator.next();
+                    // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
+                    out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                }
+
+            }
+            if (sentence.syntacticTree().isDefined()) {
+                out.println("Constituent tree: " + sentence.syntacticTree().get());
+                // see the org.clulab.struct.Tree class for more information
+                // on syntactic trees, including access to head phrases/words
+            }                  
+            if(doc.coreferenceChains().isDefined()) {
+                // these are scala.collection Iterator and Iterable (not Java!)
+                scala.collection.Iterator<scala.collection.Iterable<CorefMention>> chains = doc.coreferenceChains().get().getChains().iterator();
+                while(chains.hasNext()) {
+                    scala.collection.Iterator<CorefMention> chain = chains.next().iterator();
+                    out.println("Found one coreference chain containing the following mentions:");
+                    while(chain.hasNext()) {
+                        CorefMention mention = chain.next();
+                        // note that all these offsets start at 0 too
+                        out.println("\tsentenceIndex:" + mention.sentenceIndex() +
+                            " headIndex:" + mention.headIndex() +
+                            " startTokenOffset:" + mention.startOffset() +
+                            " endTokenOffset:" + mention.endOffset());
+                    }
+                }
+            }
+            if(doc.discourseTree().isDefined()) {
+                DiscourseTree tree = doc.discourseTree().get();
+                out.println("Discourse tree:\n" + tree);
+            }
+            
+            sentenceCount += 1;
+            out.println("\n");
         }       
     }
     
