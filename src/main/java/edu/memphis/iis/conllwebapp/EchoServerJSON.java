@@ -121,9 +121,11 @@ public class EchoServerJSON {
                 long t2 = System.currentTimeMillis();
                 out.println("MatePlus exitted successfully.");
                 out.println("Time: " + (t2 - t1) + " ms");
+                
+                // conll 09 debug
                 out.print(mateplus_output);
 
-                //out.println(mateplus_output);
+                out.println(mateplus_output);
                 out.println("CoreNLP processing pipeline started (Syntactic, Discourse, Constituency, Coreference Parsing)...");
                 t1 = System.currentTimeMillis();
                 Document corenlp_output = corenlpProcess(mateplus_output);
@@ -131,15 +133,21 @@ public class EchoServerJSON {
                 out.println("CoreNLP exitted successfully.");
                 out.println("Time: " + (t2 - t1) + " ms");
                 
-                //JSONObject magic = Jsonify(corenlp_output);
+                // this is the return, modify to however you need
+                JSONObject magic = Jsonify(corenlp_output);
                 
-                //out.print(magic.toJSONString());
+                // debug
+                out.print(magic.toJSONString());
                 out.println();
                 if (corenlp_output.discourseTree().isDefined())
                     out.print(corenlp_output.discourseTree().get().visualizerJSON(true, true, true));
+                
+                // more debug
                 debugConsole(corenlp_output);
                 debugInput(corenlp_output, out);
                 
+                
+                predicates.clear();
                        
             }
         } catch(IOException e) {
@@ -359,6 +367,7 @@ public class EchoServerJSON {
         JSONArray jArray = new JSONArray();
         
         int sentenceCount = 0;
+        int predCount = 0;
         for (Sentence s : doc.sentences()){
             JSONObject obj = new JSONObject();
             
@@ -416,7 +425,18 @@ public class EchoServerJSON {
                     JSONObject jDep = new JSONObject();
                     // convert annotation into a triple
                     scala.Tuple3<Object, Object, String> dep = iterator.next();
-                    
+                    Predicate pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                    try{                      
+                        if (pre.getIdx()-1 != (int)dep._1()){
+                            predCount++;
+                            pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                        }
+                    } catch (IndexOutOfBoundsException e){
+                        predCount--;
+                        pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                    }
+                                     
+                    jDep.put("pred", pre.getSense());
                     jDep.put("head", dep._1());
                     jDep.put("modifier", dep._2());
                     jDep.put("label", dep._3());
@@ -435,6 +455,7 @@ public class EchoServerJSON {
             
             jArray.add(obj);
             sentenceCount++;
+            predCount = 0;
         }     
         
         //initialize return object and add the sentence level annotations
@@ -472,7 +493,7 @@ public class EchoServerJSON {
             JSONObject parentObj = new JSONObject();
             JSONObject retObj = dTreeHelper(tree, parentObj, depth);
             ret.put("discourse_trees", retObj);
-        }                
+        }
         return ret;
     }
     
@@ -712,8 +733,7 @@ public class EchoServerJSON {
         if (doc.discourseTree().isDefined()) {
             DiscourseTree tree = doc.discourseTree().get();
             out.println("Discourse tree:\n" + tree);
-        }
-            
+        }   
     }       
        
 }
