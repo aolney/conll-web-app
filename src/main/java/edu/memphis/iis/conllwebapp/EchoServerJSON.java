@@ -30,6 +30,8 @@ import java.nio.file.Path;
 // Mateplus poc
 import edu.memphis.iis.MatePlusProcessor;
 import edu.memphis.iis.CoNLL09MemoryWriter;
+import se.lth.cs.srl.corpus.*;
+import se.lth.cs.srl.corpus.Predicate;
 
 
 // Processors
@@ -66,6 +68,7 @@ public class EchoServerJSON {
     File modelFile;
     SentenceModel model;
     SentenceDetectorME sentenceDetector;
+    List<List> predicates;
     
     public EchoServerJSON() throws IOException{
         // Initialize Clulab NLP Processor and CoNLL Reader
@@ -81,6 +84,8 @@ public class EchoServerJSON {
         modelFile = new File("/home/noah/NetBeansProjects/conll-web-app/en-sent.bin");
         model = new SentenceModel(modelFile);
         sentenceDetector = new SentenceDetectorME(model);
+        
+        predicates = new ArrayList<>();
     }
     
     
@@ -116,6 +121,7 @@ public class EchoServerJSON {
                 long t2 = System.currentTimeMillis();
                 out.println("MatePlus exitted successfully.");
                 out.println("Time: " + (t2 - t1) + " ms");
+                out.print(mateplus_output);
 
                 //out.println(mateplus_output);
                 out.println("CoreNLP processing pipeline started (Syntactic, Discourse, Constituency, Coreference Parsing)...");
@@ -125,13 +131,15 @@ public class EchoServerJSON {
                 out.println("CoreNLP exitted successfully.");
                 out.println("Time: " + (t2 - t1) + " ms");
                 
-                JSONObject magic = Jsonify(corenlp_output);
+                //JSONObject magic = Jsonify(corenlp_output);
                 
-                out.print(magic.toJSONString());
+                //out.print(magic.toJSONString());
                 out.println();
                 if (corenlp_output.discourseTree().isDefined())
-                    out.print(corenlp_output.discourseTree().get().visualizerJSON(true, true, true));              
+                    out.print(corenlp_output.discourseTree().get().visualizerJSON(true, true, true));
+                debugConsole(corenlp_output);
                 debugInput(corenlp_output, out);
+                
                        
             }
         } catch(IOException e) {
@@ -186,9 +194,17 @@ public class EchoServerJSON {
     }
     
     public String mateTest(String[] corpus) throws Exception{                   
-        for (String sentence: corpus)
-            writer.write(processor.parse(sentence));
-        
+        for (String sentence: corpus){
+            se.lth.cs.srl.corpus.Sentence magic = processor.parse(sentence);
+            writer.write(magic);
+            
+            if (!magic.getPredicates().isEmpty()){
+                List<Predicate> preds = magic.getPredicates();
+                
+                //preds.get(0).
+                predicates.add(preds);
+            }
+        }
         List<String> buffer = writer.getBuffer();
         StringBuilder ret = new StringBuilder();
         for(String element: buffer){
@@ -393,6 +409,7 @@ public class EchoServerJSON {
                 JSONArray synDeps = new JSONArray();   
                 // create and iterator to loop through the directed graph of sem deps
                 DirectedGraphEdgeIterator<String> iterator = new DirectedGraphEdgeIterator<>(s.semanticRoles().get()); 
+                
                 // while there is an edge to go to
                 while (iterator.hasNext()) {
                     //create a new json object
@@ -403,7 +420,8 @@ public class EchoServerJSON {
                     jDep.put("head", dep._1());
                     jDep.put("modifier", dep._2());
                     jDep.put("label", dep._3());
-                    
+                   
+                    //jDep.put("root", )
                     synDeps.add(jDep);
                 }
                 obj.put("semantic_deps", synDeps);
@@ -439,6 +457,8 @@ public class EchoServerJSON {
                     link.put("head_index", mention.headIndex());
                     link.put("start_offset", mention.startOffset());
                     link.put("end_offset", mention.endOffset());
+                    link.put("chain_id", mention.chainId());
+                    link.put("length", mention.length());
                     jChain.add(link);
                 }
                 jChains.add(jChain);
@@ -448,16 +468,19 @@ public class EchoServerJSON {
         
         if (doc.discourseTree().isDefined()){            
             DiscourseTree tree = doc.discourseTree().get();
+            int depth = 0;
             JSONObject parentObj = new JSONObject();
-            JSONObject retObj = dTreeHelper(tree, parentObj);
+            JSONObject retObj = dTreeHelper(tree, parentObj, depth);
             ret.put("discourse_trees", retObj);
         }                
         return ret;
     }
     
-    public JSONObject dTreeHelper(DiscourseTree tree, JSONObject jObj){
+    public JSONObject dTreeHelper(DiscourseTree tree, JSONObject jObj, int depth){
         // Nucleus or Satellite
-        jObj.put("kind", tree.kind());       
+        jObj.put("kind", tree.kind());
+        // make sure this is okay and working
+        jObj.put("depth", depth);
         //relLabel and relDir
         if (tree.relationLabel().length() > 0) {
             jObj.put("relLabel", tree.relationLabel());
@@ -469,13 +492,20 @@ public class EchoServerJSON {
         if (tree.rawText() != null) {
             jObj.put("text", tree.rawText());
         }
+        if (tree.firstToken() != null){
+            jObj.put("first_token", tree.firstToken());
+        }
+        if (tree.lastToken() != null){
+            jObj.put("last_token", tree.lastToken());
+        }
+        
         if (!tree.isTerminal()) {
             DiscourseTree[] kids = tree.children();
             if (kids.length > 0) {
                 JSONArray jKids = new JSONArray();
                 for (DiscourseTree kid : kids) {
                     JSONObject childObj = new JSONObject();
-                    jKids.add(dTreeHelper(kid, childObj));
+                    jKids.add(dTreeHelper(kid, childObj, depth+1));
                 }
                 jObj.put("kids", jKids);
             }                  
@@ -517,6 +547,7 @@ public class EchoServerJSON {
     */
     public void debugConsole(Document doc){
         int sentenceCount = 0;
+        int predCount = 0;
         for (Sentence sentence : doc.sentences()) {
             System.out.println("Sentence #" + sentenceCount + ":");
             System.out.println("Tokens: " + mkString(sentence.words(), " "));
@@ -549,20 +580,36 @@ public class EchoServerJSON {
             }
             if (sentence.semanticRoles().isDefined()) {
                 System.out.println("Semantic dependencies:");
+                
                 DirectedGraphEdgeIterator<String> iterator = new DirectedGraphEdgeIterator<>(sentence.semanticRoles().get());
                 while (iterator.hasNext()) {
                     scala.Tuple3<Object, Object, String> dep = iterator.next();
+                    Predicate pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                    try{                      
+                        if (pre.getIdx()-1 != (int)dep._1()){
+                            predCount++;
+                            pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                        }
+                    } catch (IndexOutOfBoundsException e){
+                        predCount--;
+                        pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                    }
                     // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
-                    System.out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                    System.out.println("pred: " + pre.getSense() + " head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                    
                 }
-
             }
             if (sentence.syntacticTree().isDefined()) {
                 System.out.println("Constituent tree: " + sentence.syntacticTree().get());
                 // see the org.clulab.struct.Tree class for more information
                 // on syntactic trees, including access to head phrases/words
-            }                  
-            if(doc.coreferenceChains().isDefined()) {
+            }                             
+            
+            sentenceCount += 1;
+            predCount = 0;
+            System.out.println("\n");
+        }
+        if(doc.coreferenceChains().isDefined()) {
                 // these are scala.collection Iterator and Iterable (not Java!)
                 scala.collection.Iterator<scala.collection.Iterable<CorefMention>> chains = doc.coreferenceChains().get().getChains().iterator();
                 while(chains.hasNext()) {
@@ -578,17 +625,14 @@ public class EchoServerJSON {
                     }
                 }
             }
-            if(doc.discourseTree().isDefined()) {
-                DiscourseTree tree = doc.discourseTree().get();
-                System.out.println("Discourse tree:\n" + tree);
-            }
-            
-            sentenceCount += 1;
-            System.out.println("\n");
-        }       
+        if (doc.discourseTree().isDefined()) {
+            DiscourseTree tree = doc.discourseTree().get();
+            System.out.println("Discourse tree:\n" + tree);
+        }
     }
     public void debugInput(Document doc, PrintWriter out){
         int sentenceCount = 0;
+        int predCount = 0;
         for (Sentence sentence : doc.sentences()) {
             out.println("Sentence #" + sentenceCount + ":");
             out.println("Tokens: " + mkString(sentence.words(), " "));
@@ -622,10 +666,21 @@ public class EchoServerJSON {
             if (sentence.semanticRoles().isDefined()) {
                 out.println("Semantic dependencies:");
                 DirectedGraphEdgeIterator<String> iterator = new DirectedGraphEdgeIterator<>(sentence.semanticRoles().get());
+                
                 while (iterator.hasNext()) {
                     scala.Tuple3<Object, Object, String> dep = iterator.next();
+                    Predicate pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                    try{                      
+                        if (pre.getIdx()-1 != (int)dep._1()){
+                            predCount++;
+                            pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                        }
+                    } catch (IndexOutOfBoundsException e){
+                        predCount--;
+                        pre = (Predicate)predicates.get(sentenceCount).get(predCount);
+                    }
                     // note that we use offsets starting at 0 (unlike CoreNLP, which uses offsets starting at 1)
-                    out.println(" head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
+                    out.println("pred: " + pre.getSense() + " head:" + dep._1() + " modifier:" + dep._2() + " label:" + dep._3());
                 }
 
             }
@@ -633,31 +688,32 @@ public class EchoServerJSON {
                 out.println("Constituent tree: " + sentence.syntacticTree().get());
                 // see the org.clulab.struct.Tree class for more information
                 // on syntactic trees, including access to head phrases/words
-            }                  
-            if(doc.coreferenceChains().isDefined()) {
-                // these are scala.collection Iterator and Iterable (not Java!)
-                scala.collection.Iterator<scala.collection.Iterable<CorefMention>> chains = doc.coreferenceChains().get().getChains().iterator();
-                while(chains.hasNext()) {
-                    scala.collection.Iterator<CorefMention> chain = chains.next().iterator();
-                    out.println("Found one coreference chain containing the following mentions:");
-                    while(chain.hasNext()) {
-                        CorefMention mention = chain.next();
-                        // note that all these offsets start at 0 too
-                        out.println("\tsentenceIndex:" + mention.sentenceIndex() +
-                            " headIndex:" + mention.headIndex() +
-                            " startTokenOffset:" + mention.startOffset() +
-                            " endTokenOffset:" + mention.endOffset());
-                    }
-                }
             }
-            if(doc.discourseTree().isDefined()) {
-                DiscourseTree tree = doc.discourseTree().get();
-                out.println("Discourse tree:\n" + tree);
-            }
-            
+            predCount =0;
             sentenceCount += 1;
             out.println("\n");
-        }       
-    }
-    
+        }
+        if (doc.coreferenceChains().isDefined()) {
+            // these are scala.collection Iterator and Iterable (not Java!)
+            scala.collection.Iterator<scala.collection.Iterable<CorefMention>> chains = doc.coreferenceChains().get().getChains().iterator();
+            while (chains.hasNext()) {
+                scala.collection.Iterator<CorefMention> chain = chains.next().iterator();
+                out.println("Found one coreference chain containing the following mentions:");
+                while (chain.hasNext()) {
+                    CorefMention mention = chain.next();
+                    // note that all these offsets start at 0 too
+                    out.println("\tsentenceIndex:" + mention.sentenceIndex()
+                            + " headIndex:" + mention.headIndex()
+                            + " startTokenOffset:" + mention.startOffset()
+                            + " endTokenOffset:" + mention.endOffset());
+                }
+            }
+        }
+        if (doc.discourseTree().isDefined()) {
+            DiscourseTree tree = doc.discourseTree().get();
+            out.println("Discourse tree:\n" + tree);
+        }
+            
+    }       
+       
 }
